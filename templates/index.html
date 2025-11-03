@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,71 +14,63 @@
             padding: 0;
             background-color: #f4f4f4;
         }
-
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
-
         .search-bar {
             width: 100%;
             padding: 10px;
             margin-bottom: 20px;
             font-size: 16px;
         }
-
-        .feeds-section,
-        .articles-section {
+        .section {
             background-color: white;
             border-radius: 5px;
             padding: 15px;
             margin-bottom: 20px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
-
         .feed-list,
         .article-list {
             list-style: none;
             padding: 0;
-            height: 70vh;
-            overflow-y: auto;
         }
-
         .feed-item,
         .article-item {
             padding: 10px;
             border-bottom: 1px solid #eee;
             cursor: pointer;
         }
-
         .feed-item:hover,
         .article-item:hover {
             background-color: #f9f9f9;
         }
-
         .unread {
             font-weight: bold;
             color: black;
         }
-
         .read {
             color: #999;
         }
-
         .summary {
             font-size: 0.9em;
             color: #666;
             margin-top: 5px;
+            display: none;
         }
-
-        .article-content {
-            padding: 15px;
-            background-color: #f9f9f9;
-            border-radius: 5px;
-            margin-top: 10px;
+        .summary.expanded {
+            display: block;
         }
-
+        h2 {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+        h2:hover {
+            color: #4CAF50;
+        }
         .navigation-buttons {
             position: fixed;
             right: 20px;
@@ -89,7 +80,6 @@
             gap: 10px;
             z-index: 100;
         }
-
         .navigation-buttons button {
             padding: 10px;
             font-size: 16px;
@@ -103,18 +93,16 @@
         }
     </style>
 </head>
-
 <body>
     <div class="container">
         <div id="feedsSection" class="section">
-            <h2>フィード一覧</h2>
+            <h2 id="feedHeader">フィード一覧</h2>
             <input type="text" class="search-bar" id="searchInput" placeholder="フィード名を検索...">
             <ul class="feed-list" id="feedList"></ul>
         </div>
         <div id="articlesSection" class="section" style="display: none;">
-            <h2>ニュース一覧</h2>
+            <h2 id="articleHeader"><span id="backToFeeds">← </span><span id="currentFeedTitle">ニュース一覧</span></h2>
             <ul class="article-list" id="articleList"></ul>
-            <div id="articleContent" class="article-content" style="display: none;"></div>
         </div>
     </div>
     <div class="navigation-buttons">
@@ -137,6 +125,7 @@
                 feedItem.textContent = feed.title;
                 feedItem.onclick = async () => {
                     currentFeedId = feed.id;
+                    document.getElementById('currentFeedTitle').textContent = feed.title;
                     await fetch('/api/fetch_articles', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -160,19 +149,12 @@
                 data.articles.forEach((article, index) => {
                     const articleItem = document.createElement('li');
                     articleItem.className = `article-item ${article.is_read ? 'read' : 'unread'}`;
-                    if (index === 0) {
-                        articleItem.innerHTML = `
-                            <span>${article.title}</span>
-                            <div class="summary">${article.content.substring(0, 100)}...</div>
-                            <span style="float: right; color: #999;">${article.published_at ? new Date(article.published_at).toLocaleString() : ''}</span>
-                        `;
-                    } else {
-                        articleItem.innerHTML = `
-                            <span>${article.title}</span>
-                            <span style="float: right; color: #999;">${article.published_at ? new Date(article.published_at).toLocaleString() : ''}</span>
-                        `;
-                    }
-                    articleItem.onclick = () => showArticle(article);
+                    articleItem.innerHTML = `
+                        <span>${article.title}</span>
+                        <div class="summary">${article.content}</div>
+                        <span style="float: right; color: #999;">${article.published_at ? new Date(article.published_at).toLocaleString() : ''}</span>
+                    `;
+                    articleItem.onclick = () => toggleSummary(articleItem, article.id);
                     articleList.appendChild(articleItem);
                 });
             } else {
@@ -180,38 +162,38 @@
             }
         }
 
-        // 記事を展開表示
-        function showArticle(article) {
-            const articleContent = document.getElementById('articleContent');
-            articleContent.innerHTML = `
-                <h3>${article.title}</h3>
-                <div>${article.content}</div>
-            `;
-            articleContent.style.display = 'block';
-
-            // 既読にする
-            fetch('/api/mark_as_read', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ article_id: article.id })
-            });
+        // 記事の要約を展開/閉じる
+        function toggleSummary(articleItem, articleId) {
+            const summary = articleItem.querySelector('.summary');
+            if (summary.classList.contains('expanded')) {
+                summary.classList.remove('expanded');
+            } else {
+                summary.classList.add('expanded');
+                // 既読にする
+                fetch('/api/mark_as_read', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ article_id: articleId })
+                });
+            }
         }
 
         // ページの上下スクロール
         function scrollPage(direction) {
-            const activeSection = document.querySelector('.section[style="display: block;"]');
-            if (!activeSection) return;
-
-            const scrollableElement = activeSection.querySelector('ul');
-            if (direction === 'up') {
-                scrollableElement.scrollBy({ top: -window.innerHeight / 2, behavior: 'smooth' });
-            } else if (direction === 'down') {
-                scrollableElement.scrollBy({ top: window.innerHeight / 2, behavior: 'smooth' });
-            }
+            window.scrollBy({
+                top: direction === 'up' ? -window.innerHeight / 2 : window.innerHeight / 2,
+                behavior: 'smooth'
+            });
         }
 
+        // フィード一覧に戻る
+        document.getElementById('backToFeeds').onclick = () => {
+            document.getElementById('feedsSection').style.display = 'block';
+            document.getElementById('articlesSection').style.display = 'none';
+        };
+
         // 検索バーのイベントリスナー
-        document.getElementById('searchInput').addEventListener('input', function (e) {
+        document.getElementById('searchInput').addEventListener('input', function(e) {
             const searchTerm = e.target.value.toLowerCase();
             const feedItems = document.querySelectorAll('.feed-item');
             feedItems.forEach(item => {
@@ -230,5 +212,4 @@
         });
     </script>
 </body>
-
 </html>
