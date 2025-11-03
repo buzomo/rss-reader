@@ -110,8 +110,8 @@
             right: 20px;
             bottom: 20px;
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: 1fr 1fr 1fr;
+            grid-template-columns: 50px 50px;
+            grid-template-rows: 50px 50px 50px;
             gap: 10px;
             z-index: 100;
         }
@@ -128,6 +128,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            outline: none;
         }
         .navigation-buttons button:disabled {
             background-color: rgba(76, 175, 80, 0.3);
@@ -148,11 +149,12 @@
         </div>
     </div>
     <div class="navigation-buttons">
-        <button id="backToFeedsBtn" onclick="backToFeeds()" disabled>←</button>
         <button id="pageUpBtn" onclick="scrollPage('up')">⇑</button>
+        <button style="visibility: hidden;"></button>
         <button id="prevArticleBtn" onclick="showPrevArticle()" disabled>↑</button>
         <button id="nextArticleBtn" onclick="showNextArticle()" disabled>↓</button>
         <button id="pageDownBtn" onclick="scrollPage('down')">⇓</button>
+        <button id="backToFeedsBtn" onclick="backToFeeds()" disabled>←</button>
     </div>
     <script>
         let currentToken = "{{ token }}";
@@ -252,6 +254,11 @@
                     articleList.appendChild(articleItem);
                     articleElements.push(articleItem);
                 });
+                // 一番上の記事を詳細表示
+                if (articlesData.length > 0) {
+                    const firstArticle = articleElements[0];
+                    toggleSummary(firstArticle, articlesData[0].id, articlesData[0].content, articlesData[0].url, 0);
+                }
             } else {
                 articleList.innerHTML = '<li>記事が見つかりませんでした</li>';
                 articleElements = [];
