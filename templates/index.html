@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,20 +14,17 @@
             padding: 0;
             background-color: #f4f4f4;
         }
-
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
-
         .search-bar {
             width: 100%;
             padding: 10px;
             margin-bottom: 20px;
             font-size: 16px;
         }
-
         .section {
             background-color: white;
             border-radius: 5px;
@@ -36,13 +32,11 @@
             margin-bottom: 20px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
-
         .feed-list,
         .article-list {
             list-style: none;
             padding: 0;
         }
-
         .feed-item,
         .article-item {
             padding: 12px 10px;
@@ -50,27 +44,22 @@
             display: flex;
             flex-direction: column;
         }
-
         .feed-item:hover,
         .article-item:hover {
             background-color: #f9f9f9;
         }
-
         .unread {
             font-weight: bold;
             color: black;
         }
-
         .read {
             color: #999;
         }
-
         .article-header {
             display: flex;
             align-items: flex-start;
             margin-bottom: 8px;
         }
-
         .star-btn {
             margin-right: 10px;
             font-size: 20px;
@@ -80,32 +69,26 @@
             min-width: 30px;
             line-height: 1;
         }
-
         .star-btn.starred {
             color: #ffd700;
         }
-
         .article-title {
             flex-grow: 1;
         }
-
         .article-title a {
             color: inherit;
             text-decoration: none;
             font-size: 16px;
         }
-
         .article-title a:hover {
             text-decoration: underline;
         }
-
         .article-date {
             color: #999;
             font-size: 14px;
             margin-left: 10px;
             white-space: nowrap;
         }
-
         .summary {
             margin-top: 8px;
             font-size: 14px;
@@ -113,18 +96,15 @@
             line-height: 1.5;
             padding-top: 8px;
         }
-
         h2 {
             cursor: pointer;
             display: flex;
             align-items: center;
             margin-bottom: 10px;
         }
-
         h2:hover {
             color: #4CAF50;
         }
-
         .navigation-buttons {
             position: fixed;
             right: 20px;
@@ -134,7 +114,6 @@
             gap: 10px;
             z-index: 100;
         }
-
         .navigation-buttons button {
             padding: 10px;
             font-size: 16px;
@@ -146,25 +125,8 @@
             height: 50px;
             cursor: pointer;
         }
-
-        .subscribe-btn {
-            margin-left: 10px;
-            padding: 2px 6px;
-            font-size: 12px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-            height: 24px;
-        }
-
-        .subscribe-btn:hover {
-            background-color: #45a049;
-        }
     </style>
 </head>
-
 <body>
     <div class="container">
         <div id="feedsSection" class="section">
@@ -232,9 +194,17 @@
                     const starButton = document.createElement('button');
                     starButton.className = `star-btn ${article.starred ? 'starred' : ''}`;
                     starButton.innerHTML = article.starred ? '★' : '☆';
-                    starButton.onclick = (e) => {
+                    starButton.onclick = async (e) => {
                         e.stopPropagation();
-                        toggleStarred(article.id, !article.starred, starButton);
+                        const newStarred = !article.starred;
+                        await toggleStarred(article.id, newStarred, starButton);
+
+                        // ホスト名が一致しない場合は自動で購読
+                        const feedHost = getHostname(article.feed_url);
+                        const articleHost = getHostname(article.url);
+                        if (feedHost && articleHost && feedHost !== articleHost && newStarred) {
+                            await subscribeFeed(article.url);
+                        }
                     };
 
                     const titleDiv = document.createElement('div');
@@ -252,20 +222,6 @@
                     headerDiv.appendChild(starButton);
                     headerDiv.appendChild(titleDiv);
                     headerDiv.appendChild(dateSpan);
-
-                    // 購読ボタンを追加（フィードURLと記事URLのホスト名が一致しない場合）
-                    const feedHost = getHostname(article.feed_url);
-                    const articleHost = getHostname(article.url);
-                    if (feedHost && articleHost && feedHost !== articleHost) {
-                        const subscribeButton = document.createElement('button');
-                        subscribeButton.className = 'subscribe-btn';
-                        subscribeButton.textContent = '購読';
-                        subscribeButton.onclick = (e) => {
-                            e.stopPropagation();
-                            subscribeFeed(article.url);
-                        };
-                        headerDiv.appendChild(subscribeButton);
-                    }
 
                     articleItem.appendChild(headerDiv);
 
@@ -337,16 +293,11 @@
 
         // フィードを購読
         async function subscribeFeed(articleUrl) {
-            const response = await fetch('/api/subscribe_feed', {
+            await fetch('/api/subscribe_feed', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url: articleUrl })
             });
-            if (response.ok) {
-                alert('フィードを購読しました');
-            } else {
-                alert('フィードの購読に失敗しました');
-            }
         }
 
         // ページの上下スクロール
@@ -383,5 +334,4 @@
         });
     </script>
 </body>
-
 </html>
