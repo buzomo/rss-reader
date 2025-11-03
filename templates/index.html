@@ -111,6 +111,17 @@
         .unread {
             font-weight: bold;
         }
+
+        #opmlModal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+        }
     </style>
 </head>
 
@@ -148,6 +159,19 @@
             <button id="starButton" class="star-btn" onclick="toggleStarred()">☆</button>
         </div>
     </div>
+    <!-- OPMLインポートモーダル -->
+    <div id="opmlModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeOpmlModal()">&times;</span>
+            <h2>OPMLファイルをインポート</h2>
+            <input type="file" id="opmlFileInput" accept=".opml,.xml" />
+            <button onclick="importOpml()">インポート</button>
+        </div>
+    </div>
+
+    <!-- OPMLインポートボタン -->
+    <button class="add-feed-btn" onclick="openOpmlModal()" style="bottom: 90px; right: 20px;">OPML</button>
+
 
     <button class="add-feed-btn" onclick="openFeedModal()">+</button>
 
@@ -233,6 +257,67 @@
                 alert('フィードの追加に失敗しました');
             }
         }
+        // OPMLインポートモーダルを開く
+        function openOpmlModal() {
+            document.getElementById('opmlModal').style.display = 'block';
+        }
+
+        // OPMLインポートモーダルを閉じる
+        function closeOpmlModal() {
+            document.getElementById('opmlModal').style.display = 'none';
+            document.getElementById('opmlFileInput').value = '';
+        }
+
+        // OPMLファイルをインポート
+        async function importOpml() {
+            const fileInput = document.getElementById('opmlFileInput');
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('ファイルを選択してください');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async function (e) {
+                const opmlText = e.target.result;
+                const feeds = parseOpml(opmlText);
+
+                for (const feed of feeds) {
+                    const response = await fetch('/api/add_feed', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ url: feed })
+                    });
+
+                    if (!response.ok) {
+                        console.error(`Failed to add feed: ${feed}`);
+                    }
+                }
+
+                alert('OPMLファイルのインポートが完了しました');
+                closeOpmlModal();
+                await loadFeeds();
+            };
+            reader.readAsText(file);
+        }
+
+        // OPMLをパースしてフィードURLを抽出
+        function parseOpml(opmlText) {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(opmlText, "text/xml");
+            const outlines = xmlDoc.getElementsByTagName("outline");
+            const feeds = [];
+
+            for (let i = 0; i < outlines.length; i++) {
+                const outline = outlines[i];
+                if (outline.hasAttribute("xmlUrl")) {
+                    feeds.push(outline.getAttribute("xmlUrl"));
+                }
+            }
+
+            return feeds;
+        }
+
 
         // 記事モーダルを開く
         function openArticleModal(article) {
