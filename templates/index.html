@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RSS Reader</title>
+    <link rel="icon"
+        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E✉%3C/text%3E%3C/svg%3E"
+        type="image/svg+xml">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .search-bar {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            font-size: 16px;
+        }
+
+        .feeds-section,
+        .articles-section {
+            background-color: white;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .feed-list,
+        .article-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .feed-item,
+        .article-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+
+        .feed-item:hover,
+        .article-item:hover {
+            background-color: #f9f9f9;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 800px;
+            border-radius: 5px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .add-feed-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .star-btn {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #ffd700;
+        }
+
+        .unread {
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <input type="text" class="search-bar" id="searchInput" placeholder="フィード名、記事タイトル、本文を検索...">
+
+        <div class="feeds-section">
+            <h2>フィード一覧</h2>
+            <ul class="feed-list" id="feedList"></ul>
+        </div>
+
+        <div class="articles-section">
+            <h2>ニュース一覧</h2>
+            <ul class="article-list" id="articleList"></ul>
+        </div>
+    </div>
+
+    <!-- フィード追加モーダル -->
+    <div id="feedModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeFeedModal()">&times;</span>
+            <h2>フィードを追加</h2>
+            <input type="text" id="feedUrlInput" placeholder="フィードURLを入力" autofocus>
+            <button onclick="addFeed()">追加</button>
+        </div>
+    </div>
+
+    <!-- 記事表示モーダル -->
+    <div id="articleModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeArticleModal()">&times;</span>
+            <h2 id="modalTitle"></h2>
+            <div id="modalContent"></div>
+            <button id="starButton" class="star-btn" onclick="toggleStarred()">☆</button>
+        </div>
+    </div>
+
+    <button class="add-feed-btn" onclick="openFeedModal()">+</button>
+
+    <script>
+        let currentToken = "{{ token }}";
+
+        // フィード一覧を読み込む
+        async function loadFeeds() {
+            const response = await fetch('/api/load_feeds');
+            const data = await response.json();
+            const feedList = document.getElementById('feedList');
+            feedList.innerHTML = '';
+
+            data.feeds.forEach(feed => {
+                const feedItem = document.createElement('li');
+                feedItem.className = 'feed-item';
+                feedItem.textContent = feed.title;
+                feedItem.onclick = () => loadArticles(feed.id);
+                feedList.appendChild(feedItem);
+            });
+        }
+
+        // 記事一覧を読み込む
+        async function loadArticles(feedId) {
+            const response = await fetch(`/api/load_articles?feed_id=${feedId}`);
+            const data = await response.json();
+            const articleList = document.getElementById('articleList');
+            articleList.innerHTML = '';
+
+            data.articles.forEach(article => {
+                const articleItem = document.createElement('li');
+                articleItem.className = `article-item ${article.is_read ? '' : 'unread'}`;
+                articleItem.innerHTML = `
+                    <span>${article.title}</span>
+                    <span style="float: right; color: #999;">${new Date(article.published_at).toLocaleString()}</span>
+                `;
+                articleItem.onclick = () => openArticleModal(article);
+                articleList.appendChild(articleItem);
+            });
+        }
+
+        // フィード追加モーダルを開く
+        function openFeedModal() {
+            document.getElementById('feedModal').style.display = 'block';
+            document.getElementById('feedUrlInput').focus();
+        }
+
+        // フィード追加モーダルを閉じる
+        function closeFeedModal() {
+            document.getElementById('feedModal').style.display = 'none';
+            document.getElementById('feedUrlInput').value = '';
+        }
+
+        // フィードを追加
+        async function addFeed() {
+            const feedUrl = document.getElementById('feedUrlInput').value.trim();
+            if (!feedUrl) return;
+
+            const response = await fetch('/api/add_feed', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: feedUrl })
+            });
+
+            if (response.ok) {
+                alert('フィードを追加しました');
+                closeFeedModal();
+                await loadFeeds();
+            } else {
+                alert('フィードの追加に失敗しました');
+            }
+        }
+
+        // 記事モーダルを開く
+        function openArticleModal(article) {
+            document.getElementById('modalTitle').textContent = article.title;
+            document.getElementById('modalContent').innerHTML = article.content;
+            document.getElementById('starButton').textContent = article.starred ? '★' : '☆';
+            document.getElementById('starButton').dataset.articleId = article.id;
+            document.getElementById('starButton').dataset.starred = article.starred;
+            document.getElementById('articleModal').style.display = 'block';
+        }
+
+        // 記事モーダルを閉じる
+        function closeArticleModal() {
+            document.getElementById('articleModal').style.display = 'none';
+        }
+
+        // お気に入りトグル
+        async function toggleStarred() {
+            const button = document.getElementById('starButton');
+            const articleId = button.dataset.articleId;
+            const newStarred = button.dataset.starred === 'true' ? false : true;
+
+            const response = await fetch('/api/toggle_starred', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: articleId, starred: newStarred })
+            });
+
+            if (response.ok) {
+                button.textContent = newStarred ? '★' : '☆';
+                button.dataset.starred = newStarred;
+            }
+        }
+
+        // 初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            loadFeeds();
+        });
+    </script>
+</body>
+
+</html>

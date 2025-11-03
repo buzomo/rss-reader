@@ -1,0 +1,286 @@
+from flask import (
+    Flask,
+    render_template,
+    request,
+    jsonify,
+    make_response,
+    redirect,
+    url_for,
+)
+import psycopg2
+import os
+import secrets
+import feedparser
+from dotenv import load_dotenv
+from urllib.parse import urlparse
+
+load_dotenv()
+
+app = Flask(__name__)
+app.secret_key = os.getenv("SECRET_KEY")
+
+
+def get_db_connection():
+    conn = psycopg2.connect(os.getenv("DATABASE_URL"))
+    return conn
+
+
+def generate_token():
+    return secrets.token_urlsafe(32)
+
+
+def init_db():
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # フィードテーブル
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS feeds_a1b2c3 (
+            id SERIAL PRIMARY KEY,
+            url TEXT NOT NULL,
+            title TEXT NOT NULL,
+            priority INTEGER DEFAULT 0,
+            token TEXT NOT NULL,
+            UNIQUE (url, token)
+        )
+    """
+    )
+
+    # 記事テーブル
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS articles_d4e5f6 (
+            id SERIAL PRIMARY KEY,
+            feed_id INTEGER REFERENCES feeds_a1b2c3(id),
+            title TEXT NOT NULL,
+            url TEXT NOT NULL,
+            content TEXT,
+            published_at TIMESTAMP,
+            is_read BOOLEAN DEFAULT FALSE,
+            starred BOOLEAN DEFAULT FALSE,
+            token TEXT NOT NULL,
+            UNIQUE (url, token)
+        )
+    """
+    )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+@app.route("/")
+def index():
+    token = request.args.get("token") or request.cookies.get("token")
+    if not token:
+        token = generate_token()
+        return redirect(url_for("index", token=token))
+
+    resp = make_response(render_template("index.html", token=token))
+    resp.set_cookie("token", token)
+    return resp
+
+
+@app.route("/api/add_feed", methods=["POST"])
+def add_feed():
+    token = request.cookies.get("token")
+    if not token:
+        return jsonify({"error": "Token not found"}), 403
+
+    feed_url = request.json.get("url")
+    if not feed_url:
+        return jsonify({"error": "URL is required"}), 400
+
+    # フィードをパースしてタイトルを取得
+    feed = feedparser.parse(feed_url)
+    feed_title = feed.feed.get("title", "Untitled Feed")
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # フィードが既に登録されているか確認
+    cur.execute(
+        """
+        SELECT id FROM feeds_a1b2c3 WHERE url = %s AND token = %s
+    """,
+        (feed_url, token),
+    )
+    if cur.fetchone():
+        cur.close()
+        conn.close()
+        return jsonify({"error": "Feed already exists"}), 400
+
+    # フィードを登録
+    cur.execute(
+        """
+        INSERT INTO feeds_a1b2c3 (url, title, token)
+        VALUES (%s, %s, %s)
+    """,
+        (feed_url, feed_title, token),
+    )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify({"status": "success", "title": feed_title})
+
+
+@app.route("/api/load_feeds")
+def load_feeds():
+    token = request.cookies.get("token")
+    if not token:
+        return jsonify({"error": "Token not found"}), 403
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # フィード一覧を取得
+    cur.execute(
+        """
+        SELECT id, url, title, priority
+        FROM feeds_a1b2c3
+        WHERE token = %s
+        ORDER BY priority DESC
+    """,
+        (token,),
+    )
+
+    feeds = [
+        {"id": row[0], "url": row[1], "title": row[2], "priority": row[3]}
+        for row in cur.fetchall()
+    ]
+
+    cur.close()
+    conn.close()
+
+    return jsonify({"feeds": feeds})
+
+
+@app.route("/api/fetch_articles", methods=["POST"])
+def fetch_articles():
+    token = request.cookies.get("token")
+    if not token:
+        return jsonify({"error": "Token not found"}), 403
+
+    feed_id = request.json.get("feed_id")
+    if not feed_id:
+        return jsonify({"error": "Feed ID is required"}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # フィードURLを取得
+    cur.execute(
+        """
+        SELECT url FROM feeds_a1b2c3 WHERE id = %s AND token = %s
+    """,
+        (feed_id, token),
+    )
+    feed_url = cur.fetchone()[0]
+
+    # フィードをパースして記事を取得
+    feed = feedparser.parse(feed_url)
+
+    for entry in feed.entries:
+        cur.execute(
+            """
+            INSERT INTO articles_d4e5f6 (feed_id, title, url, content, published_at, token)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (url, token) DO NOTHING
+        """,
+            (
+                feed_id,
+                entry.title,
+                entry.link,
+                entry.description if hasattr(entry, "description") else "",
+                entry.published_parsed if hasattr(entry, "published_parsed") else None,
+                token,
+            ),
+        )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify({"status": "success"})
+
+
+@app.route("/api/load_articles")
+def load_articles():
+    token = request.cookies.get("token")
+    if not token:
+        return jsonify({"error": "Token not found"}), 403
+
+    feed_id = request.args.get("feed_id")
+    if not feed_id:
+        return jsonify({"error": "Feed ID is required"}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # 記事一覧を取得
+    cur.execute(
+        """
+        SELECT id, title, url, content, published_at, is_read, starred
+        FROM articles_d4e5f6
+        WHERE feed_id = %s AND token = %s
+        ORDER BY published_at DESC
+    """,
+        (feed_id, token),
+    )
+
+    articles = [
+        {
+            "id": row[0],
+            "title": row[1],
+            "url": row[2],
+            "content": row[3],
+            "published_at": row[4].isoformat() if row[4] else None,
+            "is_read": row[5],
+            "starred": row[6],
+        }
+        for row in cur.fetchall()
+    ]
+
+    cur.close()
+    conn.close()
+
+    return jsonify({"articles": articles})
+
+
+@app.route("/api/toggle_starred", methods=["POST"])
+def toggle_starred():
+    token = request.cookies.get("token")
+    if not token:
+        return jsonify({"error": "Token not found"}), 403
+
+    article_id = request.json.get("id")
+    new_starred = request.json.get("starred")
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # お気に入り状態を更新
+    cur.execute(
+        """
+        UPDATE articles_d4e5f6
+        SET starred = %s
+        WHERE id = %s AND token = %s
+    """,
+        (new_starred, article_id, token),
+    )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify({"status": "success"})
+
+
+with app.app_context():
+    init_db()
+
+if __name__ == "__main__":
+    app.run(debug=True)
