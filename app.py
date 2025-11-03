@@ -168,28 +168,25 @@ def add_feed():
     feed_title = feed.feed.get("title", "Untitled Feed")
     conn = get_db_connection()
     cur = conn.cursor()
-    # フィードが既に登録されているか確認
-    cur.execute(
-        """
-        SELECT id FROM feeds_a1b2c3 WHERE url = %s AND token = %s
-    """,
-        (feed_url, token),
-    )
-    if cur.fetchone():
+    try:
+        # フィードを登録（ユニーク制約により重複は自動的にエラーになる）
+        cur.execute(
+            """
+            INSERT INTO feeds_a1b2c3 (url, title, token)
+            VALUES (%s, %s, %s)
+            """,
+            (feed_url, feed_title, token),
+        )
+        conn.commit()
+    except Exception as e:
+        # 重複エラーの場合
+        if "unique_feed_url" in str(e):
+            return jsonify({"error": "Feed already exists"}), 400
+        else:
+            return jsonify({"error": "Database error"}), 500
+    finally:
         cur.close()
         conn.close()
-        return jsonify({"error": "Feed already exists"}), 400
-    # フィードを登録
-    cur.execute(
-        """
-        INSERT INTO feeds_a1b2c3 (url, title, token)
-        VALUES (%s, %s, %s)
-    """,
-        (feed_url, feed_title, token),
-    )
-    conn.commit()
-    cur.close()
-    conn.close()
     return jsonify({"status": "success", "title": feed_title})
 
 
