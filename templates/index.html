@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,17 +15,20 @@
             padding: 0;
             background-color: #f4f4f4;
         }
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
+
         .search-bar {
             width: 100%;
             padding: 10px;
             margin-bottom: 20px;
             font-size: 16px;
         }
+
         .feeds-section,
         .articles-section {
             background-color: white;
@@ -33,82 +37,73 @@
             margin-bottom: 20px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
+
         .feed-list,
         .article-list {
             list-style: none;
             padding: 0;
+            height: 70vh;
+            overflow-y: auto;
         }
+
         .feed-item,
         .article-item {
             padding: 10px;
             border-bottom: 1px solid #eee;
             cursor: pointer;
         }
+
         .feed-item:hover,
         .article-item:hover {
             background-color: #f9f9f9;
         }
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-        }
-        .modal-content {
-            background-color: #fefefe;
-            margin: 5% auto;
-            padding: 20px;
-            border: 1px solid #888;
-            width: 80%;
-            max-width: 800px;
-            border-radius: 5px;
-        }
-        .close {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-        }
+
         .unread {
             font-weight: bold;
             color: black;
         }
+
         .read {
             color: #999;
         }
+
         .summary {
             font-size: 0.9em;
             color: #666;
             margin-top: 5px;
         }
+
         .article-content {
             padding: 15px;
             background-color: #f9f9f9;
             border-radius: 5px;
             margin-top: 10px;
         }
+
         .navigation-buttons {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
             display: flex;
-            justify-content: center;
-            margin-top: 20px;
-            gap: 20px;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 100;
         }
+
         .navigation-buttons button {
-            padding: 10px 20px;
+            padding: 10px;
             font-size: 16px;
-            background-color: #4CAF50;
+            background-color: rgba(76, 175, 80, 0.7);
             color: white;
             border: none;
-            border-radius: 5px;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
             cursor: pointer;
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div id="feedsSection" class="section">
@@ -123,8 +118,8 @@
         </div>
     </div>
     <div class="navigation-buttons">
-        <button id="pageUp" onclick="pageUp()">↑</button>
-        <button id="pageDown" onclick="pageDown()">↓</button>
+        <button id="pageUp" onclick="scrollPage('up')">↑</button>
+        <button id="pageDown" onclick="scrollPage('down')">↓</button>
     </div>
     <script>
         let currentToken = "{{ token }}";
@@ -147,9 +142,9 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ feed_id: feed.id })
                     });
-                    await loadArticles(feed.id);
                     document.getElementById('feedsSection').style.display = 'none';
                     document.getElementById('articlesSection').style.display = 'block';
+                    await loadArticles(feed.id);
                 };
                 feedList.appendChild(feedItem);
             });
@@ -202,24 +197,21 @@
             });
         }
 
-        // ページ遷移
-        function pageUp() {
-            if (document.getElementById('articlesSection').style.display === 'block') {
-                document.getElementById('feedsSection').style.display = 'block';
-                document.getElementById('articlesSection').style.display = 'none';
-                document.getElementById('articleContent').style.display = 'none';
-            }
-        }
+        // ページの上下スクロール
+        function scrollPage(direction) {
+            const activeSection = document.querySelector('.section[style="display: block;"]');
+            if (!activeSection) return;
 
-        function pageDown() {
-            if (document.getElementById('feedsSection').style.display === 'block' && currentFeedId) {
-                document.getElementById('feedsSection').style.display = 'none';
-                document.getElementById('articlesSection').style.display = 'block';
+            const scrollableElement = activeSection.querySelector('ul');
+            if (direction === 'up') {
+                scrollableElement.scrollBy({ top: -window.innerHeight / 2, behavior: 'smooth' });
+            } else if (direction === 'down') {
+                scrollableElement.scrollBy({ top: window.innerHeight / 2, behavior: 'smooth' });
             }
         }
 
         // 検索バーのイベントリスナー
-        document.getElementById('searchInput').addEventListener('input', function(e) {
+        document.getElementById('searchInput').addEventListener('input', function (e) {
             const searchTerm = e.target.value.toLowerCase();
             const feedItems = document.querySelectorAll('.feed-item');
             feedItems.forEach(item => {
@@ -238,4 +230,5 @@
         });
     </script>
 </body>
+
 </html>
