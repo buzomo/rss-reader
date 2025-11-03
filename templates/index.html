@@ -42,6 +42,8 @@
             padding: 10px;
             border-bottom: 1px solid #eee;
             cursor: pointer;
+            display: flex;
+            align-items: flex-start;
         }
         .feed-item:hover,
         .article-item:hover {
@@ -54,14 +56,29 @@
         .read {
             color: #999;
         }
+        .star-btn {
+            margin-right: 10px;
+            font-size: 20px;
+            cursor: pointer;
+            background: none;
+            border: none;
+        }
+        .star-btn.starred {
+            color: #ffd700;
+        }
+        .article-title {
+            flex-grow: 1;
+        }
+        .article-date {
+            color: #999;
+            margin-left: 10px;
+            white-space: nowrap;
+        }
         .summary {
+            margin-top: 5px;
             font-size: 0.9em;
             color: #666;
-            margin-top: 5px;
-            display: none;
-        }
-        .summary.expanded {
-            display: block;
+            width: 100%;
         }
         h2 {
             cursor: pointer;
@@ -146,15 +163,32 @@
             const articleList = document.getElementById('articleList');
             articleList.innerHTML = '';
             if (data.articles && data.articles.length > 0) {
-                data.articles.forEach((article, index) => {
+                data.articles.forEach(article => {
                     const articleItem = document.createElement('li');
                     articleItem.className = `article-item ${article.is_read ? 'read' : 'unread'}`;
-                    articleItem.innerHTML = `
-                        <span>${article.title}</span>
-                        <div class="summary">${article.content}</div>
-                        <span style="float: right; color: #999;">${article.published_at ? new Date(article.published_at).toLocaleString() : ''}</span>
-                    `;
-                    articleItem.onclick = () => toggleSummary(articleItem, article.id);
+
+                    const starButton = document.createElement('button');
+                    starButton.className = `star-btn ${article.starred ? 'starred' : ''}`;
+                    starButton.innerHTML = article.starred ? '★' : '☆';
+                    starButton.onclick = (e) => {
+                        e.stopPropagation();
+                        toggleStarred(article.id, !article.starred, starButton);
+                    };
+
+                    const titleSpan = document.createElement('span');
+                    titleSpan.className = 'article-title';
+                    titleSpan.textContent = article.title;
+
+                    const dateSpan = document.createElement('span');
+                    dateSpan.className = 'article-date';
+                    dateSpan.textContent = article.published_at ? new Date(article.published_at).toLocaleString() : '';
+
+                    articleItem.appendChild(starButton);
+                    articleItem.appendChild(titleSpan);
+                    articleItem.appendChild(dateSpan);
+
+                    articleItem.onclick = () => toggleSummary(articleItem, article.id, article.content);
+
                     articleList.appendChild(articleItem);
                 });
             } else {
@@ -163,12 +197,15 @@
         }
 
         // 記事の要約を展開/閉じる
-        function toggleSummary(articleItem, articleId) {
-            const summary = articleItem.querySelector('.summary');
-            if (summary.classList.contains('expanded')) {
-                summary.classList.remove('expanded');
+        function toggleSummary(articleItem, articleId, content) {
+            let summary = articleItem.querySelector('.summary');
+            if (summary) {
+                articleItem.removeChild(summary);
             } else {
-                summary.classList.add('expanded');
+                const summaryDiv = document.createElement('div');
+                summaryDiv.className = 'summary';
+                summaryDiv.textContent = content;
+                articleItem.appendChild(summaryDiv);
                 // 既読にする
                 fetch('/api/mark_as_read', {
                     method: 'POST',
@@ -178,11 +215,24 @@
             }
         }
 
+        // お気に入りトグル
+        async function toggleStarred(articleId, starred, button) {
+            const response = await fetch('/api/toggle_starred', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: articleId, starred: starred })
+            });
+            if (response.ok) {
+                button.className = `star-btn ${starred ? 'starred' : ''}`;
+                button.innerHTML = starred ? '★' : '☆';
+            }
+        }
+
         // ページの上下スクロール
         function scrollPage(direction) {
             window.scrollBy({
-                top: direction === 'up' ? -window.innerHeight / 2 : window.innerHeight / 2,
-                behavior: 'smooth'
+                top: direction === 'up' ? -window.innerHeight + 100 : window.innerHeight - 100,
+                behavior: 'auto'
             });
         }
 
