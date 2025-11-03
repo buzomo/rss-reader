@@ -140,6 +140,9 @@
         #starNavBtn.starred {
             background-color: rgba(255, 215, 0, 1);
         }
+        #fileInput {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -162,6 +165,8 @@
         <button id="pageDownBtn" onclick="scrollPage('down')">⇓</button>
         <button id="backToFeedsBtn" onclick="backToFeeds()" disabled>←</button>
     </div>
+    <input type="file" id="fileInput" accept=".opml,.xml" />
+
     <script>
         let currentToken = "{{ token }}";
         let currentFeedId = null;
@@ -176,6 +181,76 @@
                 return new URL(url).hostname;
             } catch (e) {
                 return null;
+            }
+        }
+
+        // 右クリックイベントでファイルピッカーを開く
+        document.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            document.getElementById('fileInput').click();
+        });
+
+        // ファイル選択時の処理
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (!file.name.match(/\.(opml|xml)$/i)) {
+                alert('OPMLファイル (.opml, .xml) を選択してください。');
+                return;
+            }
+            importOPML(file);
+            e.target.value = ''; // リセット
+        });
+
+        // OPMLファイルをインポート
+        async function importOPML(file) {
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const opmlText = e.target.result;
+                const feeds = parseOPML(opmlText);
+                if (feeds.length === 0) {
+                    alert('有効なフィードが見つかりませんでした。');
+                    return;
+                }
+                await subscribeFeeds(feeds);
+                alert(`${feeds.length}件のフィードを購読しました。`);
+                location.reload();
+            };
+            reader.readAsText(file);
+        }
+
+        // OPMLをパースしてフィードURLを抽出
+        function parseOPML(opmlText) {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(opmlText, "text/xml");
+            const outlines = xmlDoc.getElementsByTagName("outline");
+            const feeds = [];
+            for (let i = 0; i < outlines.length; i++) {
+                const outline = outlines[i];
+                if (outline.hasAttribute("xmlUrl")) {
+                    feeds.push({
+                        title: outline.hasAttribute("title") ? outline.getAttribute("title") : "Untitled Feed",
+                        url: outline.getAttribute("xmlUrl")
+                    });
+                }
+            }
+            return feeds;
+        }
+
+        // フィードを一括購読
+        async function subscribeFeeds(feeds) {
+            for (const feed of feeds) {
+                try {
+                    await fetch('/api/add_feed', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ url: feed.url })
+                    });
+                } catch (e) {
+                    console.error(`Failed to subscribe ${feed.url}:`, e);
+                }
             }
         }
 
