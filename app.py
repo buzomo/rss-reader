@@ -194,7 +194,7 @@ def fetch_articles():
         # 公開日時をパース
         published_at = None
         if hasattr(entry, "published_parsed"):
-            published_at = datetime.datetime(*entry.published_parsed[:6])
+            published_at = datetime(*entry.published_parsed[:6])
 
         # 記事を保存
         cur.execute(
