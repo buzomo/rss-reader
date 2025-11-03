@@ -13,6 +13,8 @@ import secrets
 import feedparser
 from dotenv import load_dotenv
 from urllib.parse import urlparse
+from datetime import datetime  # この行を追加
+
 
 load_dotenv()
 
