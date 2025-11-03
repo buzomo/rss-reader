@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,17 +15,20 @@
             padding: 0;
             background-color: #f4f4f4;
         }
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
+
         .search-bar {
             width: 100%;
             padding: 10px;
             margin-bottom: 20px;
             font-size: 16px;
         }
+
         .section {
             background-color: white;
             border-radius: 5px;
@@ -32,62 +36,87 @@
             margin-bottom: 20px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
+
         .feed-list,
         .article-list {
             list-style: none;
             padding: 0;
         }
+
         .feed-item,
         .article-item {
             padding: 10px;
             border-bottom: 1px solid #eee;
-            cursor: pointer;
             display: flex;
             align-items: flex-start;
         }
+
         .feed-item:hover,
         .article-item:hover {
             background-color: #f9f9f9;
         }
+
         .unread {
             font-weight: bold;
             color: black;
         }
+
         .read {
             color: #999;
         }
+
         .star-btn {
             margin-right: 10px;
             font-size: 20px;
             cursor: pointer;
             background: none;
             border: none;
+            min-width: 30px;
         }
+
         .star-btn.starred {
             color: #ffd700;
         }
+
         .article-title {
             flex-grow: 1;
+            cursor: pointer;
         }
+
+        .article-title a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .article-title a:hover {
+            text-decoration: underline;
+        }
+
         .article-date {
             color: #999;
             margin-left: 10px;
             white-space: nowrap;
         }
+
         .summary {
             margin-top: 5px;
             font-size: 0.9em;
             color: #666;
             width: 100%;
+            border-top: 1px dashed #ccc;
+            padding-top: 5px;
         }
+
         h2 {
             cursor: pointer;
             display: flex;
             align-items: center;
         }
+
         h2:hover {
             color: #4CAF50;
         }
+
         .navigation-buttons {
             position: fixed;
             right: 20px;
@@ -97,6 +126,7 @@
             gap: 10px;
             z-index: 100;
         }
+
         .navigation-buttons button {
             padding: 10px;
             font-size: 16px;
@@ -110,6 +140,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div id="feedsSection" class="section">
@@ -129,6 +160,7 @@
     <script>
         let currentToken = "{{ token }}";
         let currentFeedId = null;
+        let currentSummaryElement = null;
 
         // フィード一覧を読み込む
         async function loadFeeds() {
@@ -163,7 +195,7 @@
             const articleList = document.getElementById('articleList');
             articleList.innerHTML = '';
             if (data.articles && data.articles.length > 0) {
-                data.articles.forEach(article => {
+                data.articles.forEach((article, index) => {
                     const articleItem = document.createElement('li');
                     articleItem.className = `article-item ${article.is_read ? 'read' : 'unread'}`;
 
@@ -175,19 +207,37 @@
                         toggleStarred(article.id, !article.starred, starButton);
                     };
 
-                    const titleSpan = document.createElement('span');
-                    titleSpan.className = 'article-title';
-                    titleSpan.textContent = article.title;
+                    const titleDiv = document.createElement('div');
+                    titleDiv.className = 'article-title';
+
+                    const titleLink = document.createElement('a');
+                    titleLink.href = article.url;
+                    titleLink.target = '_blank';
+                    titleLink.textContent = article.title;
 
                     const dateSpan = document.createElement('span');
                     dateSpan.className = 'article-date';
                     dateSpan.textContent = article.published_at ? new Date(article.published_at).toLocaleString() : '';
 
+                    titleDiv.appendChild(titleLink);
                     articleItem.appendChild(starButton);
-                    articleItem.appendChild(titleSpan);
+                    articleItem.appendChild(titleDiv);
                     articleItem.appendChild(dateSpan);
 
-                    articleItem.onclick = () => toggleSummary(articleItem, article.id, article.content);
+                    // 最新記事のみ初期状態でサマリーを表示
+                    if (index === 0) {
+                        const summaryDiv = document.createElement('div');
+                        summaryDiv.className = 'summary';
+                        summaryDiv.innerHTML = `<br>${article.content}`;
+                        articleItem.appendChild(summaryDiv);
+                        currentSummaryElement = summaryDiv;
+                    }
+
+                    articleItem.onclick = (e) => {
+                        if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON') {
+                            toggleSummary(articleItem, article.id, article.content, article.url);
+                        }
+                    };
 
                     articleList.appendChild(articleItem);
                 });
@@ -196,23 +246,31 @@
             }
         }
 
-        // 記事の要約を展開/閉じる
-        function toggleSummary(articleItem, articleId, content) {
+        // 記事の要約を切り替え
+        function toggleSummary(articleItem, articleId, content, url) {
             let summary = articleItem.querySelector('.summary');
-            if (summary) {
-                articleItem.removeChild(summary);
-            } else {
-                const summaryDiv = document.createElement('div');
-                summaryDiv.className = 'summary';
-                summaryDiv.textContent = content;
-                articleItem.appendChild(summaryDiv);
-                // 既読にする
-                fetch('/api/mark_as_read', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ article_id: articleId })
-                });
+            if (summary && currentSummaryElement === summary) {
+                return; // 現在表示中のサマリーをクリックした場合は何もしない
             }
+
+            // 現在のサマリーを削除
+            if (currentSummaryElement) {
+                currentSummaryElement.remove();
+            }
+
+            // 新しいサマリーを追加
+            const summaryDiv = document.createElement('div');
+            summaryDiv.className = 'summary';
+            summaryDiv.innerHTML = `<br>${content}`;
+            articleItem.appendChild(summaryDiv);
+            currentSummaryElement = summaryDiv;
+
+            // 既読にする
+            fetch('/api/mark_as_read', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ article_id: articleId })
+            });
         }
 
         // お気に入りトグル
@@ -243,7 +301,7 @@
         };
 
         // 検索バーのイベントリスナー
-        document.getElementById('searchInput').addEventListener('input', function(e) {
+        document.getElementById('searchInput').addEventListener('input', function (e) {
             const searchTerm = e.target.value.toLowerCase();
             const feedItems = document.querySelectorAll('.feed-item');
             feedItems.forEach(item => {
@@ -262,4 +320,5 @@
         });
     </script>
 </body>
+
 </html>
