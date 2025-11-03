@@ -11,10 +11,10 @@ import psycopg2
 import os
 import secrets
 import feedparser
+from datetime import datetime
 from dotenv import load_dotenv
-from urllib.parse import urlparse
-from datetime import datetime  # この行を追加
-
+import requests
+from bs4 import BeautifulSoup
 
 load_dotenv()
 
@@ -24,7 +24,6 @@ app.secret_key = os.getenv("SECRET_KEY")
 
 def get_db_connection():
     db_url = os.getenv("DATABASE_URL")
-    print(f"Connecting to database with URL: {db_url}")  # デバッグ用
     conn = psycopg2.connect(db_url, sslmode="require")
     return conn
 
@@ -72,6 +71,38 @@ def init_db():
     conn.commit()
     cur.close()
     conn.close()
+
+
+def fetch_full_content(url):
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+        response = requests.get(url, headers=headers, timeout=10)
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        # 一般的な記事本文のセレクター
+        selectors = [
+            "article",
+            ".article-body",
+            ".post-content",
+            ".entry-content",
+            ".main-content",
+            ".content",
+            ".post-body",
+            ".blog-post-body",
+        ]
+
+        for selector in selectors:
+            element = soup.select_one(selector)
+            if element:
+                return element.get_text(separator="\n", strip=True)
+
+        # セレクターが見つからない場合は全体から抽出
+        return soup.get_text(separator="\n", strip=True)
+    except Exception as e:
+        print(f"Error fetching full content: {e}")
+        return None
 
 
 @app.route("/")
@@ -224,21 +255,22 @@ def fetch_articles():
         if hasattr(entry, "published_parsed"):
             published_at = datetime(*entry.published_parsed[:6])
 
+        # リンク先から全文を取得
+        full_content = fetch_full_content(entry.link)
+        content = (
+            full_content
+            if full_content
+            else (entry.description if hasattr(entry, "description") else entry.title)
+        )
+
         # 記事を保存
         cur.execute(
-            """
+            """"""
             INSERT INTO articles_d4e5f6 (feed_id, title, url, content, published_at, token)
             VALUES (%s, %s, %s, %s, %s, %s)
             ON CONFLICT (url, token) DO NOTHING
         """,
-            (
-                feed_id,
-                entry.title,
-                entry.link,
-                entry.description if hasattr(entry, "description") else "",
-                published_at,
-                token,
-            ),
+            (feed_id, entry.title, entry.link, content, published_at, token),
         )
 
     conn.commit()
@@ -291,35 +323,6 @@ def load_articles():
     return jsonify({"articles": articles})
 
 
-@app.route("/api/toggle_starred", methods=["POST"])
-def toggle_starred():
-    token = request.cookies.get("token")
-    if not token:
-        return jsonify({"error": "Token not found"}), 403
-
-    article_id = request.json.get("id")
-    new_starred = request.json.get("starred")
-
-    conn = get_db_connection()
-    cur = conn.cursor()
-
-    # お気に入り状態を更新
-    cur.execute(
-        """
-        UPDATE articles_d4e5f6
-        SET starred = %s
-        WHERE id = %s AND token = %s
-    """,
-        (new_starred, article_id, token),
-    )
-
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    return jsonify({"status": "success"})
-
-
 @app.route("/api/mark_as_read", methods=["POST"])
 def mark_as_read():
     token = request.cookies.get("token")
@@ -340,6 +343,35 @@ def mark_as_read():
         WHERE id = %s AND token = %s
     """,
         (article_id, token),
+    )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify({"status": "success"})
+
+
+@app.route("/api/toggle_starred", methods=["POST"])
+def toggle_starred():
+    token = request.cookies.get("token")
+    if not token:
+        return jsonify({"error": "Token not found"}), 403
+
+    article_id = request.json.get("id")
+    new_starred = request.json.get("starred")
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # お気に入り状態を更新
+    cur.execute(
+        """
+        UPDATE articles_d4e5f6
+        SET starred = %s
+        WHERE id = %s AND token = %s
+    """,
+        (new_starred, article_id, token),
     )
 
     conn.commit()
