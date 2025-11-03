@@ -134,6 +134,12 @@
             background-color: rgba(76, 175, 80, 0.3);
             cursor: not-allowed;
         }
+        #starNavBtn {
+            background-color: rgba(255, 215, 0, 0.7);
+        }
+        #starNavBtn.starred {
+            background-color: rgba(255, 215, 0, 1);
+        }
     </style>
 </head>
 <body>
@@ -150,7 +156,7 @@
     </div>
     <div class="navigation-buttons">
         <button id="pageUpBtn" onclick="scrollPage('up')">⇑</button>
-        <button style="visibility: hidden;"></button>
+        <button id="starNavBtn" onclick="toggleStarCurrentArticle()" disabled>☆</button>
         <button id="prevArticleBtn" onclick="showPrevArticle()" disabled>↑</button>
         <button id="nextArticleBtn" onclick="showNextArticle()" disabled>↓</button>
         <button id="pageDownBtn" onclick="scrollPage('down')">⇓</button>
@@ -209,6 +215,7 @@
                     articleItem.className = `article-item ${article.is_read ? 'read' : 'unread'}`;
                     articleItem.dataset.index = index;
                     articleItem.dataset.articleId = article.id;
+                    articleItem.dataset.starred = article.starred;
                     const headerDiv = document.createElement('div');
                     headerDiv.className = 'article-header';
 
@@ -300,6 +307,14 @@
             });
             // 該当する記事の上端が画面上端に合うようにスクロール
             articleItem.scrollIntoView({ behavior: 'auto', block: 'start' });
+
+            // ナビゲーションのスターボタンを更新
+            const starNavBtn = document.getElementById('starNavBtn');
+            const isStarred = articleItem.dataset.starred === 'true';
+            starNavBtn.textContent = isStarred ? '★' : '☆';
+            starNavBtn.classList.toggle('starred', isStarred);
+            starNavBtn.disabled = false;
+
             updateNavigationButtons();
         }
 
@@ -313,7 +328,25 @@
             if (response.ok) {
                 button.className = `star-btn ${starred ? 'starred' : ''}`;
                 button.innerHTML = starred ? '★' : '☆';
+                // 現在の記事のスター状態を更新
+                if (articleElements[currentArticleIndex]) {
+                    articleElements[currentArticleIndex].dataset.starred = starred;
+                }
+                // ナビゲーションのスターボタンを更新
+                const starNavBtn = document.getElementById('starNavBtn');
+                starNavBtn.textContent = starred ? '★' : '☆';
+                starNavBtn.classList.toggle('starred', starred);
             }
+        }
+
+        // 現在の記事をスター登録/解除
+        async function toggleStarCurrentArticle() {
+            if (currentArticleIndex === -1) return;
+            const articleId = articlesData[currentArticleIndex].id;
+            const articleItem = articleElements[currentArticleIndex];
+            const isStarred = articleItem.dataset.starred === 'true';
+            const newStarred = !isStarred;
+            await toggleStarred(articleId, newStarred, articleItem.querySelector('.star-btn'));
         }
 
         // フィードを購読
@@ -340,6 +373,9 @@
             document.getElementById('backToFeedsBtn').disabled = true;
             currentArticleIndex = -1;
             updateNavigationButtons();
+            // ナビゲーションのスターボタンを無効化
+            const starNavBtn = document.getElementById('starNavBtn');
+            starNavBtn.disabled = true;
         }
 
         // 前の記事の詳細を表示
