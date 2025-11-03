@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,17 +15,20 @@
             padding: 0;
             background-color: #f4f4f4;
         }
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
+
         .search-bar {
             width: 100%;
             padding: 10px;
             margin-bottom: 20px;
             font-size: 16px;
         }
+
         .section {
             background-color: white;
             border-radius: 5px;
@@ -32,11 +36,13 @@
             margin-bottom: 20px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
+
         .feed-list,
         .article-list {
             list-style: none;
             padding: 0;
         }
+
         .feed-item,
         .article-item {
             padding: 12px 10px;
@@ -44,22 +50,27 @@
             display: flex;
             flex-direction: column;
         }
+
         .feed-item:hover,
         .article-item:hover {
             background-color: #f9f9f9;
         }
+
         .unread {
             font-weight: bold;
             color: black;
         }
+
         .read {
             color: #999;
         }
+
         .article-header {
             display: flex;
             align-items: flex-start;
             margin-bottom: 8px;
         }
+
         .star-btn {
             margin-right: 10px;
             font-size: 20px;
@@ -69,26 +80,32 @@
             min-width: 30px;
             line-height: 1;
         }
+
         .star-btn.starred {
             color: #ffd700;
         }
+
         .article-title {
             flex-grow: 1;
         }
+
         .article-title a {
             color: inherit;
             text-decoration: none;
             font-size: 16px;
         }
+
         .article-title a:hover {
             text-decoration: underline;
         }
+
         .article-date {
             color: #999;
             font-size: 14px;
             margin-left: 10px;
             white-space: nowrap;
         }
+
         .summary {
             margin-top: 8px;
             font-size: 14px;
@@ -96,15 +113,18 @@
             line-height: 1.5;
             padding-top: 8px;
         }
+
         h2 {
             cursor: pointer;
             display: flex;
             align-items: center;
             margin-bottom: 10px;
         }
+
         h2:hover {
             color: #4CAF50;
         }
+
         .navigation-buttons {
             position: fixed;
             right: 20px;
@@ -115,6 +135,7 @@
             gap: 10px;
             z-index: 100;
         }
+
         .navigation-buttons button {
             padding: 10px;
             font-size: 16px;
@@ -130,21 +151,26 @@
             justify-content: center;
             outline: none;
         }
+
         .navigation-buttons button:disabled {
             background-color: rgba(76, 175, 80, 0.3);
             cursor: not-allowed;
         }
+
         #starNavBtn {
             background-color: rgba(255, 215, 0, 0.7);
         }
+
         #starNavBtn.starred {
             background-color: rgba(255, 215, 0, 1);
         }
+
         #fileInput {
             display: none;
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div id="feedsSection" class="section">
@@ -185,13 +211,13 @@
         }
 
         // 右クリックイベントでファイルピッカーを開く
-        document.addEventListener('contextmenu', function(e) {
+        document.addEventListener('contextmenu', function (e) {
             e.preventDefault();
             document.getElementById('fileInput').click();
         });
 
         // ファイル選択時の処理
-        document.getElementById('fileInput').addEventListener('change', function(e) {
+        document.getElementById('fileInput').addEventListener('change', function (e) {
             const file = e.target.files[0];
             if (!file) return;
             if (!file.name.match(/\.(opml|xml)$/i)) {
@@ -205,7 +231,7 @@
         // OPMLファイルをインポート
         async function importOPML(file) {
             const reader = new FileReader();
-            reader.onload = async function(e) {
+            reader.onload = async function (e) {
                 const opmlText = e.target.result;
                 const feeds = parseOPML(opmlText);
                 if (feeds.length === 0) {
@@ -278,12 +304,28 @@
 
         // 記事一覧を読み込む
         async function loadArticles(feedId) {
+            try {
+                // 1. 最新の記事を取り込む
+                await fetch(`/api/fetch_articles`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ feed_id: feedId })
+                });
+            } catch (e) {
+                console.error("Failed to fetch articles:", e);
+                // エラーが発生しても、既存の記事を表示するために続行
+            }
+
+            // 2. 記事一覧を読み込む
             const response = await fetch(`/api/load_articles?feed_id=${feedId}`);
             const data = await response.json();
             const articleList = document.getElementById('articleList');
             articleList.innerHTML = '';
             articleElements = [];
             articlesData = data.articles || [];
+
             if (articlesData.length > 0) {
                 articlesData.forEach((article, index) => {
                     const articleItem = document.createElement('li');
@@ -291,6 +333,7 @@
                     articleItem.dataset.index = index;
                     articleItem.dataset.articleId = article.id;
                     articleItem.dataset.starred = article.starred;
+
                     const headerDiv = document.createElement('div');
                     headerDiv.className = 'article-header';
 
@@ -301,7 +344,6 @@
                         e.stopPropagation();
                         const newStarred = !article.starred;
                         await toggleStarred(article.id, newStarred, starButton);
-
                         // ホスト名が一致しない場合は自動で購読
                         const feedHost = getHostname(article.feed_url);
                         const articleHost = getHostname(article.url);
@@ -333,9 +375,11 @@
                             toggleSummary(articleItem, article.id, article.content, article.url, index);
                         }
                     };
+
                     articleList.appendChild(articleItem);
                     articleElements.push(articleItem);
                 });
+
                 // 一番上の記事を詳細表示
                 if (articlesData.length > 0) {
                     const firstArticle = articleElements[0];
@@ -346,8 +390,10 @@
                 articleElements = [];
                 articlesData = [];
             }
+
             updateNavigationButtons();
         }
+
 
         // 記事の要約を切り替え
         async function toggleSummary(articleItem, articleId, content, url, index) {
@@ -500,4 +546,5 @@
         });
     </script>
 </body>
+
 </html>
