@@ -21,7 +21,9 @@ app.secret_key = os.getenv("SECRET_KEY")
 
 
 def get_db_connection():
-    conn = psycopg2.connect(os.getenv("DATABASE_URL"))
+    db_url = os.getenv("DATABASE_URL")
+    print(f"Connecting to database with URL: {db_url}")  # デバッグ用
+    conn = psycopg2.connect(db_url, sslmode="require")
     return conn
 
 
