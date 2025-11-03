@@ -81,6 +81,33 @@ def index():
         token = generate_token()
         return redirect(url_for("index", token=token))
 
+    feed_url = request.args.get("feed_url")
+    if feed_url:
+        feed = feedparser.parse(feed_url)
+        feed_title = feed.feed.get("title", "Untitled Feed")
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            SELECT id FROM feeds_a1b2c3 WHERE url = %s AND token = %s
+        """,
+            (feed_url, token),
+        )
+        if not cur.fetchone():
+            cur.execute(
+                """
+                INSERT INTO feeds_a1b2c3 (url, title, token)
+                VALUES (%s, %s, %s)
+            """,
+                (feed_url, feed_title, token),
+            )
+            conn.commit()
+
+        cur.close()
+        conn.close()
+
     resp = make_response(render_template("index.html", token=token))
     resp.set_cookie("token", token)
     return resp
@@ -140,19 +167,20 @@ def load_feeds():
     conn = get_db_connection()
     cur = conn.cursor()
 
-    # フィード一覧を取得
+    # フィードごとの既読数をカウント
     cur.execute(
         """
-        SELECT id, url, title, priority
-        FROM feeds_a1b2c3
-        WHERE token = %s
-        ORDER BY priority DESC
+        SELECT f.id, f.url, f.title,
+               (SELECT COUNT(*) FROM articles_d4e5f6 WHERE feed_id = f.id AND is_read = TRUE AND token = f.token) as read_count
+        FROM feeds_a1b2c3 f
+        WHERE f.token = %s
+        ORDER BY read_count DESC
     """,
         (token,),
     )
 
     feeds = [
-        {"id": row[0], "url": row[1], "title": row[2], "priority": row[3]}
+        {"id": row[0], "url": row[1], "title": row[2], "read_count": row[3]}
         for row in cur.fetchall()
     ]
 

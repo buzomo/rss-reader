@@ -122,6 +122,52 @@
             height: 100%;
             background-color: rgba(0, 0, 0, 0.7);
         }
+
+        .unread {
+            font-weight: bold;
+            color: black;
+        }
+
+        .read {
+            color: #999;
+        }
+
+        .summary {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .fullscreen-modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+        }
+
+        .fullscreen-content {
+            background-color: white;
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .navigation-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        .navigation-buttons button {
+            padding: 10px 20px;
+            font-size: 16px;
+        }
     </style>
 </head>
 
@@ -129,15 +175,17 @@
     <div class="container">
         <input type="text" class="search-bar" id="searchInput" placeholder="フィード名、記事タイトル、本文を検索...">
 
-        <div class="feeds-section">
+        <div id="feedsSection" class="section">
             <h2>フィード一覧</h2>
+            <input type="text" class="search-bar" id="searchInput" placeholder="フィード名を検索...">
             <ul class="feed-list" id="feedList"></ul>
         </div>
 
-        <div class="articles-section">
+        <div id="articlesSection" class="section" style="display: none;">
             <h2>ニュース一覧</h2>
             <ul class="article-list" id="articleList"></ul>
         </div>
+
     </div>
 
     <!-- フィード追加モーダル -->
@@ -147,6 +195,20 @@
             <h2>フィードを追加</h2>
             <input type="text" id="feedUrlInput" placeholder="フィードURLを入力" autofocus>
             <button onclick="addFeed()">追加</button>
+        </div>
+    </div>
+    <!-- ページ遷移ボタン -->
+    <div class="navigation-buttons">
+        <button id="prevPage" onclick="prevPage()">前のページ</button>
+        <button id="nextPage" onclick="nextPage()">次のページ</button>
+    </div>
+
+    <!-- 全画面表示の記事モーダル -->
+    <div id="articleModal" class="modal fullscreen-modal">
+        <div class="modal-content fullscreen-content">
+            <span class="close" onclick="closeArticleModal()">&times;</span>
+            <h2 id="modalTitle"></h2>
+            <div id="modalContent"></div>
         </div>
     </div>
 
@@ -170,7 +232,7 @@
     </div>
 
     <!-- OPMLインポートボタン -->
-    <button class="add-feed-btn" onclick="openOpmlModal()" style="bottom: 90px; right: 20px;">OPML</button>
+    <button class="add-feed-btn" onclick="openOpmlModal()" style="bottom: 90px; right: 20px;">OM</button>
 
 
     <button class="add-feed-btn" onclick="openFeedModal()">+</button>
@@ -202,7 +264,6 @@
                 feedList.appendChild(feedItem);
             });
         }
-
         // 記事一覧を読み込む
         async function loadArticles(feedId) {
             const response = await fetch(`/api/load_articles?feed_id=${feedId}`);
@@ -211,13 +272,25 @@
             articleList.innerHTML = '';
 
             if (data.articles && data.articles.length > 0) {
-                data.articles.forEach(article => {
+                data.articles.forEach((article, index) => {
                     const articleItem = document.createElement('li');
-                    articleItem.className = `article-item ${article.is_read ? '' : 'unread'}`;
-                    articleItem.innerHTML = `
-                <span>${article.title}</span>
-                <span style="float: right; color: #999;">${article.published_at ? new Date(article.published_at).toLocaleString() : ''}</span>
-            `;
+                    articleItem.className = `article-item ${article.is_read ? 'read' : 'unread'}`;
+
+                    if (index === 0) {
+                        // 最新記事はタイトルとサマリを表示
+                        articleItem.innerHTML = `
+                    <span>${article.title}</span>
+                    <div class="summary">${article.content.substring(0, 100)}...</div>
+                    <span style="float: right; color: #999;">${article.published_at ? new Date(article.published_at).toLocaleString() : ''}</span>
+                `;
+                    } else {
+                        // 2つ目以降はヘッドラインのみ
+                        articleItem.innerHTML = `
+                    <span>${article.title}</span>
+                    <span style="float: right; color: #999;">${article.published_at ? new Date(article.published_at).toLocaleString() : ''}</span>
+                `;
+                    }
+
                     articleItem.onclick = () => openArticleModal(article);
                     articleList.appendChild(articleItem);
                 });
@@ -225,6 +298,7 @@
                 articleList.innerHTML = '<li>記事が見つかりませんでした</li>';
             }
         }
+
 
         // フィード追加モーダルを開く
         function openFeedModal() {
@@ -351,6 +425,39 @@
                 button.dataset.starred = newStarred;
             }
         }
+        // 検索バーのイベントリスナー
+        document.getElementById('searchInput').addEventListener('input', function (e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const feedItems = document.querySelectorAll('.feed-item');
+
+            feedItems.forEach(item => {
+                const feedTitle = item.textContent.toLowerCase();
+                if (feedTitle.includes(searchTerm)) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+        // ページ遷移の管理
+        let currentPage = 'feeds';
+
+        function prevPage() {
+            if (currentPage === 'articles') {
+                currentPage = 'feeds';
+                document.getElementById('feedsSection').style.display = 'block';
+                document.getElementById('articlesSection').style.display = 'none';
+            }
+        }
+
+        function nextPage() {
+            if (currentPage === 'feeds') {
+                currentPage = 'articles';
+                document.getElementById('feedsSection').style.display = 'none';
+                document.getElementById('articlesSection').style.display = 'block';
+            }
+        }
+
 
         // 初期化
         document.addEventListener('DOMContentLoaded', () => {
