@@ -320,6 +320,35 @@ def toggle_starred():
     return jsonify({"status": "success"})
 
 
+@app.route("/api/mark_as_read", methods=["POST"])
+def mark_as_read():
+    token = request.cookies.get("token")
+    if not token:
+        return jsonify({"error": "Token not found"}), 403
+
+    article_id = request.json.get("article_id")
+    if not article_id:
+        return jsonify({"error": "Article ID is required"}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        UPDATE articles_d4e5f6
+        SET is_read = TRUE
+        WHERE id = %s AND token = %s
+    """,
+        (article_id, token),
+    )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify({"status": "success"})
+
+
 with app.app_context():
     init_db()
 
