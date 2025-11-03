@@ -146,6 +146,22 @@
             height: 50px;
             cursor: pointer;
         }
+
+        .subscribe-btn {
+            margin-left: 10px;
+            padding: 2px 6px;
+            font-size: 12px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            height: 24px;
+        }
+
+        .subscribe-btn:hover {
+            background-color: #45a049;
+        }
     </style>
 </head>
 
@@ -170,6 +186,15 @@
         let currentFeedId = null;
         let currentSummaryElement = null;
 
+        // ホスト名を取得する関数
+        function getHostname(url) {
+            try {
+                return new URL(url).hostname;
+            } catch (e) {
+                return null;
+            }
+        }
+
         // フィード一覧を読み込む
         async function loadFeeds() {
             const response = await fetch('/api/load_feeds');
@@ -183,14 +208,9 @@
                 feedItem.onclick = async () => {
                     currentFeedId = feed.id;
                     document.getElementById('currentFeedTitle').textContent = feed.title;
-                    await fetch('/api/fetch_articles', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ feed_id: feed.id })
-                    });
+                    await loadArticles(feed.id);
                     document.getElementById('feedsSection').style.display = 'none';
                     document.getElementById('articlesSection').style.display = 'block';
-                    await loadArticles(feed.id);
                 };
                 feedList.appendChild(feedItem);
             });
@@ -206,7 +226,6 @@
                 data.articles.forEach((article, index) => {
                     const articleItem = document.createElement('li');
                     articleItem.className = `article-item ${article.is_read ? 'read' : 'unread'}`;
-
                     const headerDiv = document.createElement('div');
                     headerDiv.className = 'article-header';
 
@@ -220,7 +239,6 @@
 
                     const titleDiv = document.createElement('div');
                     titleDiv.className = 'article-title';
-
                     const titleLink = document.createElement('a');
                     titleLink.href = article.url;
                     titleLink.target = '_blank';
@@ -234,6 +252,20 @@
                     headerDiv.appendChild(starButton);
                     headerDiv.appendChild(titleDiv);
                     headerDiv.appendChild(dateSpan);
+
+                    // 購読ボタンを追加（フィードURLと記事URLのホスト名が一致しない場合）
+                    const feedHost = getHostname(article.feed_url);
+                    const articleHost = getHostname(article.url);
+                    if (feedHost && articleHost && feedHost !== articleHost) {
+                        const subscribeButton = document.createElement('button');
+                        subscribeButton.className = 'subscribe-btn';
+                        subscribeButton.textContent = '購読';
+                        subscribeButton.onclick = (e) => {
+                            e.stopPropagation();
+                            subscribeFeed(article.url);
+                        };
+                        headerDiv.appendChild(subscribeButton);
+                    }
 
                     articleItem.appendChild(headerDiv);
 
@@ -251,7 +283,6 @@
                             toggleSummary(articleItem, article.id, article.content, article.url);
                         }
                     };
-
                     articleList.appendChild(articleItem);
                 });
             } else {
@@ -265,29 +296,24 @@
             if (summary && currentSummaryElement === summary) {
                 return;
             }
-
             // 現在のサマリーを削除
             if (currentSummaryElement) {
                 currentSummaryElement.remove();
             }
-
             // 全文を取得
             const response = await fetch('/api/fetch_full_content', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ article_id: articleId })
             });
-
             const data = await response.json();
             const fullContent = data.content || content;
-
             // 新しいサマリーを追加
             const summaryDiv = document.createElement('div');
             summaryDiv.className = 'summary';
             summaryDiv.innerHTML = `<br><br>${fullContent}`;
             articleItem.appendChild(summaryDiv);
             currentSummaryElement = summaryDiv;
-
             // 既読にする
             await fetch('/api/mark_as_read', {
                 method: 'POST',
@@ -295,7 +321,6 @@
                 body: JSON.stringify({ article_id: articleId })
             });
         }
-
 
         // お気に入りトグル
         async function toggleStarred(articleId, starred, button) {
@@ -307,6 +332,20 @@
             if (response.ok) {
                 button.className = `star-btn ${starred ? 'starred' : ''}`;
                 button.innerHTML = starred ? '★' : '☆';
+            }
+        }
+
+        // フィードを購読
+        async function subscribeFeed(articleUrl) {
+            const response = await fetch('/api/subscribe_feed', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: articleUrl })
+            });
+            if (response.ok) {
+                alert('フィードを購読しました');
+            } else {
+                alert('フィードの購読に失敗しました');
             }
         }
 
