@@ -13,25 +13,7 @@
     "routes": [
         {
             "src": "/(.*)",
-            "dest": "app.py",
-            "methods": [
-                "GET",
-                "POST",
-                "PUT",
-                "DELETE",
-                "OPTIONS"
-            ]
-        },
-        {
-            "src": "/static/(.*)",
-            "dest": "static/$1"
+            "dest": "app.py"
         }
-    ],
-    "env": {
-        "DATABASE_URL": "@neon-database-url",
-        "SECRET_KEY": "@secret-key"
-    },
-    "regions": [
-        "tok1"
     ]
 }
