@@ -175,17 +175,26 @@ def fetch_articles():
 
     # フィードURLを取得
     cur.execute(
-        """
-        SELECT url FROM feeds_a1b2c3 WHERE id = %s AND token = %s
-    """,
-        (feed_id, token),
+        "SELECT url FROM feeds_a1b2c3 WHERE id = %s AND token = %s", (feed_id, token)
     )
-    feed_url = cur.fetchone()[0]
+    result = cur.fetchone()
+    if not result:
+        cur.close()
+        conn.close()
+        return jsonify({"error": "Feed not found"}), 404
+
+    feed_url = result[0]
 
     # フィードをパースして記事を取得
     feed = feedparser.parse(feed_url)
 
     for entry in feed.entries:
+        # 公開日時をパース
+        published_at = None
+        if hasattr(entry, "published_parsed"):
+            published_at = datetime.datetime(*entry.published_parsed[:6])
+
+        # 記事を保存
         cur.execute(
             """
             INSERT INTO articles_d4e5f6 (feed_id, title, url, content, published_at, token)
@@ -197,7 +206,7 @@ def fetch_articles():
                 entry.title,
                 entry.link,
                 entry.description if hasattr(entry, "description") else "",
-                entry.published_parsed if hasattr(entry, "published_parsed") else None,
+                published_at,
                 token,
             ),
         )

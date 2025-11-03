@@ -165,7 +165,16 @@
                 const feedItem = document.createElement('li');
                 feedItem.className = 'feed-item';
                 feedItem.textContent = feed.title;
-                feedItem.onclick = () => loadArticles(feed.id);
+                feedItem.onclick = async () => {
+                    // 記事を取得
+                    await fetch('/api/fetch_articles', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ feed_id: feed.id })
+                    });
+                    // 記事一覧を読み込む
+                    await loadArticles(feed.id);
+                };
                 feedList.appendChild(feedItem);
             });
         }
@@ -177,16 +186,20 @@
             const articleList = document.getElementById('articleList');
             articleList.innerHTML = '';
 
-            data.articles.forEach(article => {
-                const articleItem = document.createElement('li');
-                articleItem.className = `article-item ${article.is_read ? '' : 'unread'}`;
-                articleItem.innerHTML = `
-                    <span>${article.title}</span>
-                    <span style="float: right; color: #999;">${new Date(article.published_at).toLocaleString()}</span>
-                `;
-                articleItem.onclick = () => openArticleModal(article);
-                articleList.appendChild(articleItem);
-            });
+            if (data.articles && data.articles.length > 0) {
+                data.articles.forEach(article => {
+                    const articleItem = document.createElement('li');
+                    articleItem.className = `article-item ${article.is_read ? '' : 'unread'}`;
+                    articleItem.innerHTML = `
+                <span>${article.title}</span>
+                <span style="float: right; color: #999;">${article.published_at ? new Date(article.published_at).toLocaleString() : ''}</span>
+            `;
+                    articleItem.onclick = () => openArticleModal(article);
+                    articleList.appendChild(articleItem);
+                });
+            } else {
+                articleList.innerHTML = '<li>記事が見つかりませんでした</li>';
+            }
         }
 
         // フィード追加モーダルを開く
