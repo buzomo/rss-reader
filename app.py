@@ -218,9 +218,8 @@ def fetch_articles():
         if hasattr(entry, 'published_parsed'):
             published_at = datetime(*entry.published_parsed[:6])
 
-        # リンク先から全文を取得
-        full_content = fetch_full_content(entry.link)
-        content = full_content if full_content else (entry.description if hasattr(entry, 'description') else entry.title)
+        # 記事を保存（全文は取得せず、フィードの内容のみ保存）
+        content = entry.description if hasattr(entry, 'description') else entry.title
 
         # 記事を保存
         cur.execute('''
@@ -280,6 +279,44 @@ def load_articles():
     conn.close()
 
     return jsonify({'articles': articles})
+
+@app.route('/api/fetch_full_content', methods=['POST'])
+def api_fetch_full_content():
+    token = request.cookies.get('token')
+    if not token:
+        return jsonify({'error': 'Token not found'}), 403
+
+    article_id = request.json.get('article_id')
+    if not article_id:
+        return jsonify({'error': 'Article ID is required'}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # 記事のURLを取得
+    cur.execute('SELECT url FROM articles_d4e5f6 WHERE id = %s AND token = %s', (article_id, token))
+    result = cur.fetchone()
+    if not result:
+        cur.close()
+        conn.close()
+        return jsonify({'error': 'Article not found'}), 404
+
+    article_url = result[0]
+    full_content = fetch_full_content(article_url)
+
+    if full_content:
+        # 全文をデータベースに更新
+        cur.execute('''
+            UPDATE articles_d4e5f6
+            SET content = %s
+            WHERE id = %s AND token = %s
+        ''', (full_content, article_id, token))
+        conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return jsonify({'content': full_content})
 
 @app.route('/api/mark_as_read', methods=['POST'])
 def mark_as_read():
