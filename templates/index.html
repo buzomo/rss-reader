@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,20 +14,17 @@
             padding: 0;
             background-color: #f4f4f4;
         }
-
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
-
         .search-bar {
             width: 100%;
             padding: 10px;
             margin-bottom: 20px;
             font-size: 16px;
         }
-
         .section {
             background-color: white;
             border-radius: 5px;
@@ -36,35 +32,34 @@
             margin-bottom: 20px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
-
         .feed-list,
         .article-list {
             list-style: none;
             padding: 0;
         }
-
         .feed-item,
         .article-item {
-            padding: 10px;
+            padding: 12px 10px;
             border-bottom: 1px solid #eee;
             display: flex;
-            align-items: flex-start;
+            flex-direction: column;
         }
-
         .feed-item:hover,
         .article-item:hover {
             background-color: #f9f9f9;
         }
-
         .unread {
             font-weight: bold;
             color: black;
         }
-
         .read {
             color: #999;
         }
-
+        .article-header {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
         .star-btn {
             margin-right: 10px;
             font-size: 20px;
@@ -72,51 +67,44 @@
             background: none;
             border: none;
             min-width: 30px;
+            line-height: 1;
         }
-
         .star-btn.starred {
             color: #ffd700;
         }
-
         .article-title {
             flex-grow: 1;
-            cursor: pointer;
         }
-
         .article-title a {
             color: inherit;
             text-decoration: none;
+            font-size: 16px;
         }
-
         .article-title a:hover {
             text-decoration: underline;
         }
-
         .article-date {
             color: #999;
+            font-size: 14px;
             margin-left: 10px;
             white-space: nowrap;
         }
-
         .summary {
-            margin-top: 5px;
-            font-size: 0.9em;
+            margin-top: 8px;
+            font-size: 14px;
             color: #666;
-            width: 100%;
-            border-top: 1px dashed #ccc;
-            padding-top: 5px;
+            line-height: 1.5;
+            padding-top: 8px;
         }
-
         h2 {
             cursor: pointer;
             display: flex;
             align-items: center;
+            margin-bottom: 10px;
         }
-
         h2:hover {
             color: #4CAF50;
         }
-
         .navigation-buttons {
             position: fixed;
             right: 20px;
@@ -126,7 +114,6 @@
             gap: 10px;
             z-index: 100;
         }
-
         .navigation-buttons button {
             padding: 10px;
             font-size: 16px;
@@ -140,7 +127,6 @@
         }
     </style>
 </head>
-
 <body>
     <div class="container">
         <div id="feedsSection" class="section">
@@ -199,6 +185,9 @@
                     const articleItem = document.createElement('li');
                     articleItem.className = `article-item ${article.is_read ? 'read' : 'unread'}`;
 
+                    const headerDiv = document.createElement('div');
+                    headerDiv.className = 'article-header';
+
                     const starButton = document.createElement('button');
                     starButton.className = `star-btn ${article.starred ? 'starred' : ''}`;
                     starButton.innerHTML = article.starred ? '★' : '☆';
@@ -220,15 +209,17 @@
                     dateSpan.textContent = article.published_at ? new Date(article.published_at).toLocaleString() : '';
 
                     titleDiv.appendChild(titleLink);
-                    articleItem.appendChild(starButton);
-                    articleItem.appendChild(titleDiv);
-                    articleItem.appendChild(dateSpan);
+                    headerDiv.appendChild(starButton);
+                    headerDiv.appendChild(titleDiv);
+                    headerDiv.appendChild(dateSpan);
+
+                    articleItem.appendChild(headerDiv);
 
                     // 最新記事のみ初期状態でサマリーを表示
                     if (index === 0) {
                         const summaryDiv = document.createElement('div');
                         summaryDiv.className = 'summary';
-                        summaryDiv.innerHTML = `<br>${article.content}`;
+                        summaryDiv.innerHTML = article.content;
                         articleItem.appendChild(summaryDiv);
                         currentSummaryElement = summaryDiv;
                     }
@@ -250,7 +241,7 @@
         function toggleSummary(articleItem, articleId, content, url) {
             let summary = articleItem.querySelector('.summary');
             if (summary && currentSummaryElement === summary) {
-                return; // 現在表示中のサマリーをクリックした場合は何もしない
+                return;
             }
 
             // 現在のサマリーを削除
@@ -261,7 +252,7 @@
             // 新しいサマリーを追加
             const summaryDiv = document.createElement('div');
             summaryDiv.className = 'summary';
-            summaryDiv.innerHTML = `<br>${content}`;
+            summaryDiv.innerHTML = content;
             articleItem.appendChild(summaryDiv);
             currentSummaryElement = summaryDiv;
 
@@ -301,7 +292,7 @@
         };
 
         // 検索バーのイベントリスナー
-        document.getElementById('searchInput').addEventListener('input', function (e) {
+        document.getElementById('searchInput').addEventListener('input', function(e) {
             const searchTerm = e.target.value.toLowerCase();
             const feedItems = document.querySelectorAll('.feed-item');
             feedItems.forEach(item => {
@@ -320,5 +311,4 @@
         });
     </script>
 </body>
-
 </html>
