@@ -109,8 +109,9 @@
             position: fixed;
             right: 20px;
             bottom: 20px;
-            display: flex;
-            flex-direction: column;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr 1fr;
             gap: 10px;
             z-index: 100;
         }
@@ -124,6 +125,13 @@
             width: 50px;
             height: 50px;
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .navigation-buttons button:disabled {
+            background-color: rgba(76, 175, 80, 0.3);
+            cursor: not-allowed;
         }
     </style>
 </head>
@@ -140,13 +148,19 @@
         </div>
     </div>
     <div class="navigation-buttons">
-        <button id="pageUp" onclick="scrollPage('up')">↑</button>
-        <button id="pageDown" onclick="scrollPage('down')">↓</button>
+        <button id="backToFeedsBtn" onclick="backToFeeds()" disabled>←</button>
+        <button id="pageUpBtn" onclick="scrollPage('up')">⇑</button>
+        <button id="prevArticleBtn" onclick="showPrevArticle()" disabled>↑</button>
+        <button id="nextArticleBtn" onclick="showNextArticle()" disabled>↓</button>
+        <button id="pageDownBtn" onclick="scrollPage('down')">⇓</button>
     </div>
     <script>
         let currentToken = "{{ token }}";
         let currentFeedId = null;
         let currentSummaryElement = null;
+        let currentArticleIndex = -1;
+        let articleElements = [];
+        let articlesData = [];
 
         // ホスト名を取得する関数
         function getHostname(url) {
@@ -173,6 +187,7 @@
                     await loadArticles(feed.id);
                     document.getElementById('feedsSection').style.display = 'none';
                     document.getElementById('articlesSection').style.display = 'block';
+                    document.getElementById('backToFeedsBtn').disabled = false;
                 };
                 feedList.appendChild(feedItem);
             });
@@ -184,10 +199,14 @@
             const data = await response.json();
             const articleList = document.getElementById('articleList');
             articleList.innerHTML = '';
-            if (data.articles && data.articles.length > 0) {
-                data.articles.forEach((article, index) => {
+            articleElements = [];
+            articlesData = data.articles || [];
+            if (articlesData.length > 0) {
+                articlesData.forEach((article, index) => {
                     const articleItem = document.createElement('li');
                     articleItem.className = `article-item ${article.is_read ? 'read' : 'unread'}`;
+                    articleItem.dataset.index = index;
+                    articleItem.dataset.articleId = article.id;
                     const headerDiv = document.createElement('div');
                     headerDiv.className = 'article-header';
 
@@ -225,29 +244,24 @@
 
                     articleItem.appendChild(headerDiv);
 
-                    // 最新記事のみ初期状態でサマリーを表示
-                    if (index === 0) {
-                        const summaryDiv = document.createElement('div');
-                        summaryDiv.className = 'summary';
-                        summaryDiv.innerHTML = article.content;
-                        articleItem.appendChild(summaryDiv);
-                        currentSummaryElement = summaryDiv;
-                    }
-
                     articleItem.onclick = (e) => {
                         if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON') {
-                            toggleSummary(articleItem, article.id, article.content, article.url);
+                            toggleSummary(articleItem, article.id, article.content, article.url, index);
                         }
                     };
                     articleList.appendChild(articleItem);
+                    articleElements.push(articleItem);
                 });
             } else {
                 articleList.innerHTML = '<li>記事が見つかりませんでした</li>';
+                articleElements = [];
+                articlesData = [];
             }
+            updateNavigationButtons();
         }
 
         // 記事の要約を切り替え
-        async function toggleSummary(articleItem, articleId, content, url) {
+        async function toggleSummary(articleItem, articleId, content, url, index) {
             let summary = articleItem.querySelector('.summary');
             if (summary && currentSummaryElement === summary) {
                 return;
@@ -270,12 +284,16 @@
             summaryDiv.innerHTML = `<br><br>${fullContent}`;
             articleItem.appendChild(summaryDiv);
             currentSummaryElement = summaryDiv;
+            currentArticleIndex = index;
             // 既読にする
             await fetch('/api/mark_as_read', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ article_id: articleId })
             });
+            // 該当する記事の上端が画面上端に合うようにスクロール
+            articleItem.scrollIntoView({ behavior: 'auto', block: 'start' });
+            updateNavigationButtons();
         }
 
         // お気に入りトグル
@@ -309,10 +327,40 @@
         }
 
         // フィード一覧に戻る
-        document.getElementById('backToFeeds').onclick = () => {
+        function backToFeeds() {
             document.getElementById('feedsSection').style.display = 'block';
             document.getElementById('articlesSection').style.display = 'none';
-        };
+            document.getElementById('backToFeedsBtn').disabled = true;
+            currentArticleIndex = -1;
+            updateNavigationButtons();
+        }
+
+        // 前の記事の詳細を表示
+        function showPrevArticle() {
+            if (currentArticleIndex <= 0) return;
+            const prevIndex = currentArticleIndex - 1;
+            const prevArticle = articleElements[prevIndex];
+            const article = articlesData[prevIndex];
+            toggleSummary(prevArticle, article.id, article.content, article.url, prevIndex);
+        }
+
+        // 次の記事の詳細を表示
+        function showNextArticle() {
+            if (currentArticleIndex >= articleElements.length - 1) return;
+            const nextIndex = currentArticleIndex + 1;
+            const nextArticle = articleElements[nextIndex];
+            const article = articlesData[nextIndex];
+            toggleSummary(nextArticle, article.id, article.content, article.url, nextIndex);
+        }
+
+        // ナビゲーションボタンの状態を更新
+        function updateNavigationButtons() {
+            const prevBtn = document.getElementById('prevArticleBtn');
+            const nextBtn = document.getElementById('nextArticleBtn');
+            // ニュース一覧表示時、または記事の先頭/末尾ではボタンを無効化
+            prevBtn.disabled = currentArticleIndex <= 0 || currentArticleIndex === -1;
+            nextBtn.disabled = currentArticleIndex >= articleElements.length - 1 || currentArticleIndex === -1;
+        }
 
         // 検索バーのイベントリスナー
         document.getElementById('searchInput').addEventListener('input', function (e) {
