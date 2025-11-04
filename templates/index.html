@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,17 +15,20 @@
             padding: 0;
             background-color: #f4f4f4;
         }
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
+
         .search-bar {
             width: 100%;
             padding: 10px;
             margin-bottom: 20px;
             font-size: 16px;
         }
+
         .section {
             background-color: white;
             border-radius: 5px;
@@ -32,11 +36,13 @@
             margin-bottom: 20px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
+
         .feed-list,
         .article-list {
             list-style: none;
             padding: 0;
         }
+
         .feed-item {
             padding: 12px 10px;
             border-bottom: 1px solid #eee;
@@ -44,30 +50,37 @@
             align-items: center;
             cursor: pointer;
         }
+
         .feed-item:hover {
             background-color: #f9f9f9;
         }
+
         .article-item {
             padding: 12px 10px;
             border-bottom: 1px solid #eee;
             display: flex;
             flex-direction: column;
         }
+
         .article-item:hover {
             background-color: #f9f9f9;
         }
+
         .unread {
             font-weight: bold;
             color: black;
         }
+
         .read {
             color: #999;
         }
+
         .article-header {
             display: flex;
             align-items: flex-start;
             margin-bottom: 8px;
         }
+
         .star-btn {
             margin-right: 10px;
             font-size: 20px;
@@ -77,38 +90,55 @@
             min-width: 30px;
             line-height: 1;
         }
+
         .star-btn.starred {
             color: #ffd700;
         }
+
         .article-title {
             flex-grow: 1;
         }
+
         .article-title a {
             color: inherit;
             text-decoration: none;
             font-size: 16px;
         }
+
         .article-title a:hover {
             text-decoration: underline;
         }
+
         .article-date {
             color: #999;
             font-size: 14px;
             margin-left: 10px;
             white-space: nowrap;
         }
+
         .summary {
-            margin-top: 8px;
-            font-size: 14px;
-            color: #666;
-            line-height: 1.5;
-            padding-top: 8px;
+            margin-top: 12px;
+            font-size: 16px;
+            /* 文字を大きく */
+            color: #333;
+            /* コントラストを上げる */
+            line-height: 1.8;
+            /* 行間を広く */
+            padding: 12px;
+            background-color: #fefefe;
+            /* 背景色でゆとりを出す */
+            border-radius: 4px;
+            border-left: 4px solid #e0e0e0;
+            /* 左ボーダーで区切りを明確に */
         }
+
+
         h2 {
             margin-bottom: 10px;
             display: flex;
             align-items: center;
         }
+
         .navigation-buttons {
             position: fixed;
             right: 20px;
@@ -118,6 +148,7 @@
             gap: 8px;
             z-index: 100;
         }
+
         .navigation-buttons .button-group {
             display: flex;
             flex-direction: column;
@@ -128,6 +159,7 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             border: 1px solid rgba(0, 0, 0, 0.1);
         }
+
         .navigation-buttons button {
             padding: 0;
             font-size: 18px;
@@ -145,11 +177,13 @@
             transition: all 0.2s;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
+
         .navigation-buttons button:hover {
             background-color: #f0f0f0;
             transform: translateY(-1px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
         }
+
         .navigation-buttons button:disabled {
             color: #ccc;
             cursor: not-allowed;
@@ -157,19 +191,24 @@
             transform: none;
             box-shadow: none;
         }
+
         #starNavBtn {
             color: #ffa500;
         }
+
         #starNavBtn.starred {
             color: #ffd700;
         }
+
         #backToFeedsBtn {
             color: #4CAF50;
             font-size: 20px;
         }
+
         #fileInput {
             display: none;
         }
+
         .read-count-badge {
             background-color: #4CAF50;
             color: white;
@@ -180,10 +219,21 @@
             min-width: 20px;
             text-align: center;
         }
+
+        #starredSection {
+            display: none;
+            /* 初期状態では非表示 */
+        }
     </style>
 </head>
+
 <body>
     <div class="container">
+        <div id="starredSection" class="section" style="display: none;">
+            <h2>スターしたアイテム</h2>
+            <input type="text" class="search-bar" id="starredSearchInput" placeholder="スターしたアイテムを検索...">
+            <ul class="article-list" id="starredArticleList"></ul>
+        </div>
         <div id="feedsSection" class="section">
             <h2 id="feedHeader">フィード一覧</h2>
             <input type="text" class="search-bar" id="searchInput" placeholder="フィード名を検索...">
@@ -483,6 +533,63 @@
                 body: JSON.stringify({ url: articleUrl })
             });
         }
+        // 「スターしたアイテム」一覧を読み込む
+        async function loadStarredArticles() {
+            const response = await fetch('/api/load_starred_articles');
+            const data = await response.json();
+            const starredArticleList = document.getElementById('starredArticleList');
+            starredArticleList.innerHTML = '';
+            if (data.articles && data.articles.length > 0) {
+                data.articles.forEach(article => {
+                    const articleItem = document.createElement('li');
+                    articleItem.className = 'article-item starred';
+                    articleItem.dataset.articleId = article.id;
+                    articleItem.dataset.starred = 'true';
+                    const headerDiv = document.createElement('div');
+                    headerDiv.className = 'article-header';
+                    const starButton = document.createElement('button');
+                    starButton.className = 'star-btn starred';
+                    starButton.innerHTML = '★';
+                    starButton.onclick = async (e) => {
+                        e.stopPropagation();
+                        await toggleStarred(article.id, false, starButton);
+                    };
+                    const titleDiv = document.createElement('div');
+                    titleDiv.className = 'article-title';
+                    const titleLink = document.createElement('a');
+                    titleLink.href = article.url;
+                    titleLink.target = '_blank';
+                    titleLink.textContent = article.title;
+                    const dateSpan = document.createElement('span');
+                    dateSpan.className = 'article-date';
+                    dateSpan.textContent = article.published_at ? new Date(article.published_at).toLocaleString() : '';
+                    titleDiv.appendChild(titleLink);
+                    headerDiv.appendChild(starButton);
+                    headerDiv.appendChild(titleDiv);
+                    headerDiv.appendChild(dateSpan);
+                    articleItem.appendChild(headerDiv);
+                    // サマリーを表示するためのクリックイベント
+                    articleItem.onclick = (e) => {
+                        if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON') {
+                            toggleSummary(articleItem, article.id, article.content, article.url, 0);
+                        }
+                    };
+                    starredArticleList.appendChild(articleItem);
+                });
+            } else {
+                starredArticleList.innerHTML = '<li>スターしたアイテムがありません</li>';
+            }
+            document.getElementById('starredSection').style.display = 'block';
+            document.getElementById('feedsSection').style.display = 'none';
+            document.getElementById('articlesSection').style.display = 'none';
+        }
+
+        // 「スターしたアイテム」セクションに切り替える関数
+        function showStarredSection() {
+            loadStarredArticles();
+            document.getElementById('backToFeedsBtn').disabled = false;
+        }
+
         // ページの上下スクロール
         function scrollPage(direction) {
             window.scrollBy({
@@ -525,12 +632,23 @@
             prevBtn.disabled = currentArticleIndex <= 0 || currentArticleIndex === -1;
             nextBtn.disabled = currentArticleIndex >= articleElements.length - 1 || currentArticleIndex === -1;
         }
+        function kanaConvert(s) {
+            return s.replace(/[ァ-ヴ]/g, m => String.fromCharCode(m.charCodeAt(0) - 0x60));
+        }
+        function widthConvert(s) {
+            return s.replace(/[Ａ-Ｚａ-ｚ０-９]/g, m => String.fromCharCode(m.charCodeAt(0) - 0xFEE0));
+        }
+        function caseConvert(s) {
+            return s.toLowerCase();
+        }
+        const normalize = s => caseConvert(widthConvert(kanaConvert((s || '').trim())));
+
         // 検索バーのイベントリスナー（フィード一覧用）
         document.getElementById('searchInput').addEventListener('input', function (e) {
-            const searchTerm = e.target.value.toLowerCase();
+            const searchTerm = normalize(e.target.value);
             const feedItems = document.querySelectorAll('.feed-item');
             feedItems.forEach(item => {
-                const feedTitle = item.querySelector('span:last-child').textContent.toLowerCase();
+                const feedTitle = normalize(item.querySelector('span:last-child').textContent);
                 if (feedTitle.includes(searchTerm)) {
                     item.style.display = '';
                 } else {
@@ -538,14 +656,15 @@
                 }
             });
         });
+
         // 検索バーのイベントリスナー（ニュース一覧用）
         document.getElementById('articleSearchInput').addEventListener('input', function (e) {
-            const searchTerm = e.target.value.toLowerCase();
+            const searchTerm = normalize(e.target.value);
             const articleItems = document.querySelectorAll('.article-item');
             articleItems.forEach(item => {
-                const title = item.querySelector('.article-title a').textContent.toLowerCase();
+                const title = normalize(item.querySelector('.article-title a').textContent);
                 const summary = item.querySelector('.summary');
-                const summaryText = summary ? summary.textContent.toLowerCase() : '';
+                const summaryText = summary ? normalize(summary.textContent) : '';
                 if (title.includes(searchTerm) || summaryText.includes(searchTerm)) {
                     item.style.display = '';
                 } else {
@@ -553,10 +672,28 @@
                 }
             });
         });
+
+        // 「スターしたアイテム」検索バーのイベントリスナー
+        document.getElementById('starredSearchInput').addEventListener('input', function (e) {
+            const searchTerm = normalize(e.target.value);
+            const articleItems = document.querySelectorAll('#starredArticleList .article-item');
+            articleItems.forEach(item => {
+                const title = normalize(item.querySelector('.article-title a').textContent);
+                const summary = item.querySelector('.summary');
+                const summaryText = summary ? normalize(summary.textContent) : '';
+                if (title.includes(searchTerm) || summaryText.includes(searchTerm)) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+
         // 初期化
         document.addEventListener('DOMContentLoaded', () => {
             loadFeeds();
         });
     </script>
 </body>
+
 </html>

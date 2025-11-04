@@ -452,6 +452,39 @@ def subscribe_feed():
     return jsonify({"status": "success"})
 
 
+@app.route("/api/load_starred_articles")
+def load_starred_articles():
+    token = request.cookies.get("token")
+    if not token:
+        return jsonify({"error": "Token not found"}), 403
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT a.id, a.title, a.url, a.content, a.published_at, f.url as feed_url
+        FROM articles_d4e5f6 a
+        JOIN feeds_a1b2c3 f ON a.feed_id = f.id
+        WHERE a.starred = TRUE AND a.token = %s
+        ORDER BY a.published_at DESC
+        """,
+        (token,),
+    )
+    articles = [
+        {
+            "id": row[0],
+            "title": row[1],
+            "url": row[2],
+            "content": row[3],
+            "published_at": row[4].isoformat() if row[4] else None,
+            "feed_url": row[5],
+        }
+        for row in cur.fetchall()
+    ]
+    cur.close()
+    conn.close()
+    return jsonify({"articles": articles})
+
+
 if __name__ == "__main__":
     with app.app_context():
         init_db()
