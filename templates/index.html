@@ -224,10 +224,57 @@
             display: none;
             /* 初期状態では非表示 */
         }
+
+        /* 画面右端100pxの透明エリア */
+        #rightEdgeArea {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 100px;
+            height: 100vh;
+            z-index: 100;
+            pointer-events: auto;
+        }
+
+        /* 上半分（ページアップ） */
+        #rightEdgeArea .page-up {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100px;
+            height: 50vh;
+        }
+
+        /* 下半分（ページダウン） */
+        #rightEdgeArea .page-down {
+            position: absolute;
+            top: 50vh;
+            right: 0;
+            width: 100px;
+            height: 50vh;
+        }
+
+        /* 画面下端50pxの透明エリア */
+        #bottomEdgeArea {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100vw;
+            height: 50px;
+            z-index: 100;
+            pointer-events: auto;
+        }
     </style>
 </head>
 
 <body>
+    <div id="rightEdgeArea">
+        <div class="page-up" onclick="scrollPage('up')"></div>
+        <div class="page-down" onclick="scrollPage('down')"></div>
+    </div>
+    <div id="bottomEdgeArea" onclick="backToFeeds()"></div>
+
+
     <div class="container">
         <div id="starredSection" class="section" style="display: none;">
             <h2>スターしたアイテム</h2>
@@ -248,18 +295,7 @@
             <ul class="article-list" id="articleList"></ul>
         </div>
     </div>
-    <div class="navigation-buttons">
-        <div class="button-group">
-            <button id="pageUpBtn" onclick="scrollPage('up')" title="ページ上へ">⇑</button>
-            <button id="starNavBtn" onclick="toggleStarCurrentArticle()" title="お気に入り" disabled>☆</button>
-            <button id="prevArticleBtn" onclick="showPrevArticle()" title="前の記事" disabled>↑</button>
-            <button id="nextArticleBtn" onclick="showNextArticle()" title="次の記事" disabled>↓</button>
-            <button id="pageDownBtn" onclick="scrollPage('down')" title="ページ下へ">⇓</button>
-        </div>
-        <div class="button-group">
-            <button id="backToFeedsBtn" onclick="backToFeeds()" title="フィード一覧に戻る" disabled>←</button>
-        </div>
-    </div>
+
     <input type="file" id="fileInput" accept=".opml,.xml" />
     <script>
         let currentToken = "{{ token }}";
