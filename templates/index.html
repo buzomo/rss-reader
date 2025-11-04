@@ -37,14 +37,22 @@
             list-style: none;
             padding: 0;
         }
-        .feed-item,
+        .feed-item {
+            padding: 12px 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        .feed-item:hover {
+            background-color: #f9f9f9;
+        }
         .article-item {
             padding: 12px 10px;
             border-bottom: 1px solid #eee;
             display: flex;
             flex-direction: column;
         }
-        .feed-item:hover,
         .article-item:hover {
             background-color: #f9f9f9;
         }
@@ -143,13 +151,13 @@
         #fileInput {
             display: none;
         }
-        .unread-count {
+        .read-count-badge {
             background-color: #4CAF50;
             color: white;
             border-radius: 10px;
             padding: 2px 6px;
             font-size: 12px;
-            margin-right: 8px;
+            margin-right: 10px;
             min-width: 20px;
             text-align: center;
         }
@@ -266,14 +274,17 @@
             data.feeds.forEach(feed => {
                 const feedItem = document.createElement('li');
                 feedItem.className = 'feed-item';
+                // read_count を表示
                 const readCount = feed.read_count || 0;
-                if (readCount > 0) {
-                    const readBadge = document.createElement('span');
-                    readBadge.className = 'unread-count';
-                    readBadge.textContent = readCount;
-                    feedItem.appendChild(readBadge);
-                }
-                feedItem.textContent = feed.title;
+                const readBadge = document.createElement('span');
+                readBadge.className = 'read-count-badge';
+                readBadge.textContent = readCount;
+                feedItem.appendChild(readBadge);
+                // フィード名を追加
+                const feedTitle = document.createElement('span');
+                feedTitle.textContent = feed.title;
+                feedItem.appendChild(feedTitle);
+                // クリックイベント
                 feedItem.onclick = async () => {
                     currentFeedId = feed.id;
                     document.getElementById('currentFeedTitle').textContent = feed.title;
@@ -493,7 +504,7 @@
             const searchTerm = e.target.value.toLowerCase();
             const feedItems = document.querySelectorAll('.feed-item');
             feedItems.forEach(item => {
-                const feedTitle = item.textContent.toLowerCase();
+                const feedTitle = item.querySelector('span:last-child').textContent.toLowerCase();
                 if (feedTitle.includes(searchTerm)) {
                     item.style.display = '';
                 } else {
