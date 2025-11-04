@@ -105,48 +105,67 @@
             padding-top: 8px;
         }
         h2 {
-            cursor: pointer;
+            margin-bottom: 10px;
             display: flex;
             align-items: center;
-            margin-bottom: 10px;
-        }
-        h2:hover {
-            color: #4CAF50;
         }
         .navigation-buttons {
             position: fixed;
             right: 20px;
             bottom: 20px;
-            display: grid;
-            grid-template-columns: 50px 50px;
-            grid-template-rows: 50px 50px 50px;
-            gap: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
             z-index: 100;
         }
+        .navigation-buttons .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 12px;
+            padding: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
         .navigation-buttons button {
-            padding: 10px;
-            font-size: 16px;
-            background-color: rgba(76, 175, 80, 0.7);
-            color: white;
+            padding: 0;
+            font-size: 18px;
+            background-color: white;
+            color: #555;
             border: none;
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
+            width: 44px;
+            height: 44px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             outline: none;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .navigation-buttons button:hover {
+            background-color: #f0f0f0;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
         }
         .navigation-buttons button:disabled {
-            background-color: rgba(76, 175, 80, 0.3);
+            color: #ccc;
             cursor: not-allowed;
+            background-color: white;
+            transform: none;
+            box-shadow: none;
         }
         #starNavBtn {
-            background-color: rgba(255, 215, 0, 0.7);
+            color: #ffa500;
         }
         #starNavBtn.starred {
-            background-color: rgba(255, 215, 0, 1);
+            color: #ffd700;
+        }
+        #backToFeedsBtn {
+            color: #4CAF50;
+            font-size: 20px;
         }
         #fileInput {
             display: none;
@@ -171,18 +190,25 @@
             <ul class="feed-list" id="feedList"></ul>
         </div>
         <div id="articlesSection" class="section" style="display: none;">
-            <h2 id="articleHeader"><span id="backToFeeds">← </span><span id="currentFeedTitle">ニュース一覧</span></h2>
+            <h2 id="articleHeader">
+                <span id="backToFeeds"></span>
+                <span id="currentFeedTitle">ニュース一覧</span>
+            </h2>
             <input type="text" class="search-bar" id="articleSearchInput" placeholder="記事を検索...">
             <ul class="article-list" id="articleList"></ul>
         </div>
     </div>
     <div class="navigation-buttons">
-        <button id="pageUpBtn" onclick="scrollPage('up')">⇑</button>
-        <button id="starNavBtn" onclick="toggleStarCurrentArticle()" disabled>☆</button>
-        <button id="prevArticleBtn" onclick="showPrevArticle()" disabled>↑</button>
-        <button id="nextArticleBtn" onclick="showNextArticle()" disabled>↓</button>
-        <button id="pageDownBtn" onclick="scrollPage('down')">⇓</button>
-        <button id="backToFeedsBtn" onclick="backToFeeds()" disabled>←</button>
+        <div class="button-group">
+            <button id="pageUpBtn" onclick="scrollPage('up')" title="ページ上へ">⇑</button>
+            <button id="starNavBtn" onclick="toggleStarCurrentArticle()" title="お気に入り" disabled>☆</button>
+            <button id="prevArticleBtn" onclick="showPrevArticle()" title="前の記事" disabled>↑</button>
+            <button id="nextArticleBtn" onclick="showNextArticle()" title="次の記事" disabled>↓</button>
+            <button id="pageDownBtn" onclick="scrollPage('down')" title="ページ下へ">⇓</button>
+        </div>
+        <div class="button-group">
+            <button id="backToFeedsBtn" onclick="backToFeeds()" title="フィード一覧に戻る" disabled>←</button>
+        </div>
     </div>
     <input type="file" id="fileInput" accept=".opml,.xml" />
     <script>
