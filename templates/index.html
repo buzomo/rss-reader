@@ -144,7 +144,7 @@
             display: none;
         }
         .unread-count {
-            background-color: #ff4444;
+            background-color: #4CAF50;
             color: white;
             border-radius: 10px;
             padding: 2px 6px;
@@ -265,12 +265,12 @@
             data.feeds.forEach(feed => {
                 const feedItem = document.createElement('li');
                 feedItem.className = 'feed-item';
-                const unreadCount = feed.unread_count || 0;
-                if (unreadCount > 0) {
-                    const unreadBadge = document.createElement('span');
-                    unreadBadge.className = 'unread-count';
-                    unreadBadge.textContent = unreadCount;
-                    feedItem.appendChild(unreadBadge);
+                const readCount = feed.read_count || 0;
+                if (readCount > 0) {
+                    const readBadge = document.createElement('span');
+                    readBadge.className = 'unread-count';
+                    readBadge.textContent = readCount;
+                    feedItem.appendChild(readBadge);
                 }
                 feedItem.textContent = feed.title;
                 feedItem.onclick = async () => {
