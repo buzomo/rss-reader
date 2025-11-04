@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,20 +14,17 @@
             padding: 0;
             background-color: #f4f4f4;
         }
-
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
-
         .search-bar {
             width: 100%;
             padding: 10px;
             margin-bottom: 20px;
             font-size: 16px;
         }
-
         .section {
             background-color: white;
             border-radius: 5px;
@@ -36,13 +32,11 @@
             margin-bottom: 20px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
-
         .feed-list,
         .article-list {
             list-style: none;
             padding: 0;
         }
-
         .feed-item,
         .article-item {
             padding: 12px 10px;
@@ -50,27 +44,22 @@
             display: flex;
             flex-direction: column;
         }
-
         .feed-item:hover,
         .article-item:hover {
             background-color: #f9f9f9;
         }
-
         .unread {
             font-weight: bold;
             color: black;
         }
-
         .read {
             color: #999;
         }
-
         .article-header {
             display: flex;
             align-items: flex-start;
             margin-bottom: 8px;
         }
-
         .star-btn {
             margin-right: 10px;
             font-size: 20px;
@@ -80,32 +69,26 @@
             min-width: 30px;
             line-height: 1;
         }
-
         .star-btn.starred {
             color: #ffd700;
         }
-
         .article-title {
             flex-grow: 1;
         }
-
         .article-title a {
             color: inherit;
             text-decoration: none;
             font-size: 16px;
         }
-
         .article-title a:hover {
             text-decoration: underline;
         }
-
         .article-date {
             color: #999;
             font-size: 14px;
             margin-left: 10px;
             white-space: nowrap;
         }
-
         .summary {
             margin-top: 8px;
             font-size: 14px;
@@ -113,18 +96,15 @@
             line-height: 1.5;
             padding-top: 8px;
         }
-
         h2 {
             cursor: pointer;
             display: flex;
             align-items: center;
             margin-bottom: 10px;
         }
-
         h2:hover {
             color: #4CAF50;
         }
-
         .navigation-buttons {
             position: fixed;
             right: 20px;
@@ -135,7 +115,6 @@
             gap: 10px;
             z-index: 100;
         }
-
         .navigation-buttons button {
             padding: 10px;
             font-size: 16px;
@@ -151,26 +130,31 @@
             justify-content: center;
             outline: none;
         }
-
         .navigation-buttons button:disabled {
             background-color: rgba(76, 175, 80, 0.3);
             cursor: not-allowed;
         }
-
         #starNavBtn {
             background-color: rgba(255, 215, 0, 0.7);
         }
-
         #starNavBtn.starred {
             background-color: rgba(255, 215, 0, 1);
         }
-
         #fileInput {
             display: none;
         }
+        .unread-count {
+            background-color: #ff4444;
+            color: white;
+            border-radius: 10px;
+            padding: 2px 6px;
+            font-size: 12px;
+            margin-right: 8px;
+            min-width: 20px;
+            text-align: center;
+        }
     </style>
 </head>
-
 <body>
     <div class="container">
         <div id="feedsSection" class="section">
@@ -192,7 +176,6 @@
         <button id="backToFeedsBtn" onclick="backToFeeds()" disabled>←</button>
     </div>
     <input type="file" id="fileInput" accept=".opml,.xml" />
-
     <script>
         let currentToken = "{{ token }}";
         let currentFeedId = null;
@@ -200,7 +183,6 @@
         let currentArticleIndex = -1;
         let articleElements = [];
         let articlesData = [];
-
         // ホスト名を取得する関数
         function getHostname(url) {
             try {
@@ -209,13 +191,11 @@
                 return null;
             }
         }
-
         // 右クリックイベントでファイルピッカーを開く
         document.addEventListener('contextmenu', function (e) {
             e.preventDefault();
             document.getElementById('fileInput').click();
         });
-
         // ファイル選択時の処理
         document.getElementById('fileInput').addEventListener('change', function (e) {
             const file = e.target.files[0];
@@ -227,7 +207,6 @@
             importOPML(file);
             e.target.value = ''; // リセット
         });
-
         // OPMLファイルをインポート
         async function importOPML(file) {
             const reader = new FileReader();
@@ -244,7 +223,6 @@
             };
             reader.readAsText(file);
         }
-
         // OPMLをパースしてフィードURLを抽出
         function parseOPML(opmlText) {
             const parser = new DOMParser();
@@ -262,7 +240,6 @@
             }
             return feeds;
         }
-
         // フィードを一括購読
         async function subscribeFeeds(feeds) {
             for (const feed of feeds) {
@@ -279,7 +256,6 @@
                 }
             }
         }
-
         // フィード一覧を読み込む
         async function loadFeeds() {
             const response = await fetch('/api/load_feeds');
@@ -289,6 +265,13 @@
             data.feeds.forEach(feed => {
                 const feedItem = document.createElement('li');
                 feedItem.className = 'feed-item';
+                const unreadCount = feed.unread_count || 0;
+                if (unreadCount > 0) {
+                    const unreadBadge = document.createElement('span');
+                    unreadBadge.className = 'unread-count';
+                    unreadBadge.textContent = unreadCount;
+                    feedItem.appendChild(unreadBadge);
+                }
                 feedItem.textContent = feed.title;
                 feedItem.onclick = async () => {
                     currentFeedId = feed.id;
@@ -301,7 +284,6 @@
                 feedList.appendChild(feedItem);
             });
         }
-
         // 記事一覧を読み込む
         async function loadArticles(feedId) {
             try {
@@ -315,9 +297,7 @@
                 });
             } catch (e) {
                 console.error("Failed to fetch articles:", e);
-                // エラーが発生しても、既存の記事を表示するために続行
             }
-
             // 2. 記事一覧を読み込む
             const response = await fetch(`/api/load_articles?feed_id=${feedId}`);
             const data = await response.json();
@@ -325,7 +305,8 @@
             articleList.innerHTML = '';
             articleElements = [];
             articlesData = data.articles || [];
-
+            // 新しい記事が上に来るように降順にソート
+            articlesData.sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
             if (articlesData.length > 0) {
                 articlesData.forEach((article, index) => {
                     const articleItem = document.createElement('li');
@@ -333,10 +314,8 @@
                     articleItem.dataset.index = index;
                     articleItem.dataset.articleId = article.id;
                     articleItem.dataset.starred = article.starred;
-
                     const headerDiv = document.createElement('div');
                     headerDiv.className = 'article-header';
-
                     const starButton = document.createElement('button');
                     starButton.className = `star-btn ${article.starred ? 'starred' : ''}`;
                     starButton.innerHTML = article.starred ? '★' : '☆';
@@ -351,50 +330,37 @@
                             await subscribeFeed(article.url);
                         }
                     };
-
                     const titleDiv = document.createElement('div');
                     titleDiv.className = 'article-title';
                     const titleLink = document.createElement('a');
                     titleLink.href = article.url;
                     titleLink.target = '_blank';
                     titleLink.textContent = article.title;
-
                     const dateSpan = document.createElement('span');
                     dateSpan.className = 'article-date';
                     dateSpan.textContent = article.published_at ? new Date(article.published_at).toLocaleString() : '';
-
                     titleDiv.appendChild(titleLink);
                     headerDiv.appendChild(starButton);
                     headerDiv.appendChild(titleDiv);
                     headerDiv.appendChild(dateSpan);
-
                     articleItem.appendChild(headerDiv);
-
                     articleItem.onclick = (e) => {
                         if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON') {
                             toggleSummary(articleItem, article.id, article.content, article.url, index);
                         }
                     };
-
                     articleList.appendChild(articleItem);
                     articleElements.push(articleItem);
                 });
-
-                // 一番上の記事を詳細表示
-                if (articlesData.length > 0) {
-                    const firstArticle = articleElements[0];
-                    toggleSummary(firstArticle, articlesData[0].id, articlesData[0].content, articlesData[0].url, 0);
-                }
+                // 自動展開をやめる
+                currentArticleIndex = -1;
             } else {
                 articleList.innerHTML = '<li>記事が見つかりませんでした</li>';
                 articleElements = [];
                 articlesData = [];
             }
-
             updateNavigationButtons();
         }
-
-
         // 記事の要約を切り替え
         async function toggleSummary(articleItem, articleId, content, url, index) {
             let summary = articleItem.querySelector('.summary');
@@ -428,17 +394,14 @@
             });
             // 該当する記事の上端が画面上端に合うようにスクロール
             articleItem.scrollIntoView({ behavior: 'auto', block: 'start' });
-
             // ナビゲーションのスターボタンを更新
             const starNavBtn = document.getElementById('starNavBtn');
             const isStarred = articleItem.dataset.starred === 'true';
             starNavBtn.textContent = isStarred ? '★' : '☆';
             starNavBtn.classList.toggle('starred', isStarred);
             starNavBtn.disabled = false;
-
             updateNavigationButtons();
         }
-
         // お気に入りトグル
         async function toggleStarred(articleId, starred, button) {
             const response = await fetch('/api/toggle_starred', {
@@ -457,9 +420,14 @@
                 const starNavBtn = document.getElementById('starNavBtn');
                 starNavBtn.textContent = starred ? '★' : '☆';
                 starNavBtn.classList.toggle('starred', starred);
+                // スターした記事も既読にする
+                await fetch('/api/mark_as_read', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ article_id: articleId })
+                });
             }
         }
-
         // 現在の記事をスター登録/解除
         async function toggleStarCurrentArticle() {
             if (currentArticleIndex === -1) return;
@@ -469,7 +437,6 @@
             const newStarred = !isStarred;
             await toggleStarred(articleId, newStarred, articleItem.querySelector('.star-btn'));
         }
-
         // フィードを購読
         async function subscribeFeed(articleUrl) {
             await fetch('/api/subscribe_feed', {
@@ -478,7 +445,6 @@
                 body: JSON.stringify({ url: articleUrl })
             });
         }
-
         // ページの上下スクロール
         function scrollPage(direction) {
             window.scrollBy({
@@ -486,7 +452,6 @@
                 behavior: 'auto'
             });
         }
-
         // フィード一覧に戻る
         function backToFeeds() {
             document.getElementById('feedsSection').style.display = 'block';
@@ -498,7 +463,6 @@
             const starNavBtn = document.getElementById('starNavBtn');
             starNavBtn.disabled = true;
         }
-
         // 前の記事の詳細を表示
         function showPrevArticle() {
             if (currentArticleIndex <= 0) return;
@@ -507,7 +471,6 @@
             const article = articlesData[prevIndex];
             toggleSummary(prevArticle, article.id, article.content, article.url, prevIndex);
         }
-
         // 次の記事の詳細を表示
         function showNextArticle() {
             if (currentArticleIndex >= articleElements.length - 1) return;
@@ -516,7 +479,6 @@
             const article = articlesData[nextIndex];
             toggleSummary(nextArticle, article.id, article.content, article.url, nextIndex);
         }
-
         // ナビゲーションボタンの状態を更新
         function updateNavigationButtons() {
             const prevBtn = document.getElementById('prevArticleBtn');
@@ -525,7 +487,6 @@
             prevBtn.disabled = currentArticleIndex <= 0 || currentArticleIndex === -1;
             nextBtn.disabled = currentArticleIndex >= articleElements.length - 1 || currentArticleIndex === -1;
         }
-
         // 検索バーのイベントリスナー
         document.getElementById('searchInput').addEventListener('input', function (e) {
             const searchTerm = e.target.value.toLowerCase();
@@ -539,12 +500,10 @@
                 }
             });
         });
-
         // 初期化
         document.addEventListener('DOMContentLoaded', () => {
             loadFeeds();
         });
     </script>
 </body>
-
 </html>
