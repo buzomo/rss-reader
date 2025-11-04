@@ -499,7 +499,6 @@
                 articleElements = [];
                 articlesData = [];
             }
-            updateNavigationButtons();
         }
         // 記事の要約を切り替え
         async function toggleSummary(articleItem, articleId, content, url, index) {
@@ -540,7 +539,6 @@
             starNavBtn.textContent = isStarred ? '★' : '☆';
             starNavBtn.classList.toggle('starred', isStarred);
             starNavBtn.disabled = false;
-            updateNavigationButtons();
         }
         // お気に入りトグル
         async function toggleStarred(articleId, starred, button) {
@@ -644,7 +642,7 @@
             } else {
                 articleList.innerHTML = '<li>スターしたアイテムがありません</li>';
             }
-            updateNavigationButtons();
+
         }
 
 
@@ -667,7 +665,7 @@
             document.getElementById('articlesSection').style.display = 'none';
             document.getElementById('backToFeedsBtn').disabled = true;
             currentArticleIndex = -1;
-            updateNavigationButtons();
+
             // ナビゲーションのスターボタンを無効化
             const starNavBtn = document.getElementById('starNavBtn');
             starNavBtn.disabled = true;
@@ -687,14 +685,6 @@
             const nextArticle = articleElements[nextIndex];
             const article = articlesData[nextIndex];
             toggleSummary(nextArticle, article.id, article.content, article.url, nextIndex);
-        }
-        // ナビゲーションボタンの状態を更新
-        function updateNavigationButtons() {
-            const prevBtn = document.getElementById('prevArticleBtn');
-            const nextBtn = document.getElementById('nextArticleBtn');
-            // ニュース一覧表示時、または記事の先頭/末尾ではボタンを無効化
-            prevBtn.disabled = currentArticleIndex <= 0 || currentArticleIndex === -1;
-            nextBtn.disabled = currentArticleIndex >= articleElements.length - 1 || currentArticleIndex === -1;
         }
         function kanaConvert(s) {
             return s.replace(/[ァ-ヴ]/g, m => String.fromCharCode(m.charCodeAt(0) - 0x60));
