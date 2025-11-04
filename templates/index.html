@@ -851,7 +851,14 @@
         function hidePurgeModal() {
             document.getElementById('purgeModal').style.display = 'none';
         }
-
+        // confirmAndPurge 関数の実装
+        function confirmAndPurge() {
+            if (!currentFeedId) {
+                alert('フィードが選択されていません。');
+                return;
+            }
+            showPurgeModal();
+        }
         // Purge実行
         async function executePurge() {
             const response = await fetch('/api/purge_feed', {
