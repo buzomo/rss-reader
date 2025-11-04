@@ -347,20 +347,35 @@
             const data = await response.json();
             const feedList = document.getElementById('feedList');
             feedList.innerHTML = '';
+
+            // 「スターしたアイテム」を最上部に追加
+            const starredItem = document.createElement('li');
+            starredItem.className = 'feed-item';
+            starredItem.innerHTML = `
+        <span class="read-count-badge">★</span>
+        <span>スターしたアイテム</span>
+    `;
+            starredItem.onclick = async () => {
+                await loadStarredArticles();
+                document.getElementById('feedsSection').style.display = 'none';
+                document.getElementById('articlesSection').style.display = 'block';
+                document.getElementById('backToFeedsBtn').disabled = false;
+                document.getElementById('currentFeedTitle').textContent = 'スターしたアイテム';
+            };
+            feedList.appendChild(starredItem);
+
+            // 既存のフィードを追加
             data.feeds.forEach(feed => {
                 const feedItem = document.createElement('li');
                 feedItem.className = 'feed-item';
-                // read_count を表示
                 const readCount = feed.read_count || 0;
                 const readBadge = document.createElement('span');
                 readBadge.className = 'read-count-badge';
                 readBadge.textContent = readCount;
                 feedItem.appendChild(readBadge);
-                // フィード名を追加
                 const feedTitle = document.createElement('span');
                 feedTitle.textContent = feed.title;
                 feedItem.appendChild(feedTitle);
-                // クリックイベント
                 feedItem.onclick = async () => {
                     currentFeedId = feed.id;
                     document.getElementById('currentFeedTitle').textContent = feed.title;
@@ -372,6 +387,7 @@
                 feedList.appendChild(feedItem);
             });
         }
+
         // 記事一覧を読み込む
         async function loadArticles(feedId) {
             try {
@@ -535,54 +551,66 @@
         }
         // 「スターしたアイテム」一覧を読み込む
         async function loadStarredArticles() {
+            currentFeedId = null; // スターしたアイテムはフィードに属さないので null に設定
             const response = await fetch('/api/load_starred_articles');
             const data = await response.json();
-            const starredArticleList = document.getElementById('starredArticleList');
-            starredArticleList.innerHTML = '';
-            if (data.articles && data.articles.length > 0) {
-                data.articles.forEach(article => {
+            const articleList = document.getElementById('articleList');
+            articleList.innerHTML = '';
+            articleElements = [];
+            articlesData = data.articles || [];
+
+            if (articlesData.length > 0) {
+                articlesData.forEach((article, index) => {
                     const articleItem = document.createElement('li');
                     articleItem.className = 'article-item starred';
+                    articleItem.dataset.index = index;
                     articleItem.dataset.articleId = article.id;
                     articleItem.dataset.starred = 'true';
+
                     const headerDiv = document.createElement('div');
                     headerDiv.className = 'article-header';
+
                     const starButton = document.createElement('button');
                     starButton.className = 'star-btn starred';
                     starButton.innerHTML = '★';
                     starButton.onclick = async (e) => {
                         e.stopPropagation();
-                        await toggleStarred(article.id, false, starButton);
+                        const newStarred = false;
+                        await toggleStarred(article.id, newStarred, starButton);
                     };
+
                     const titleDiv = document.createElement('div');
                     titleDiv.className = 'article-title';
                     const titleLink = document.createElement('a');
                     titleLink.href = article.url;
                     titleLink.target = '_blank';
                     titleLink.textContent = article.title;
+
                     const dateSpan = document.createElement('span');
                     dateSpan.className = 'article-date';
                     dateSpan.textContent = article.published_at ? new Date(article.published_at).toLocaleString() : '';
+
                     titleDiv.appendChild(titleLink);
                     headerDiv.appendChild(starButton);
                     headerDiv.appendChild(titleDiv);
                     headerDiv.appendChild(dateSpan);
                     articleItem.appendChild(headerDiv);
-                    // サマリーを表示するためのクリックイベント
+
                     articleItem.onclick = (e) => {
                         if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON') {
-                            toggleSummary(articleItem, article.id, article.content, article.url, 0);
+                            toggleSummary(articleItem, article.id, article.content, article.url, index);
                         }
                     };
-                    starredArticleList.appendChild(articleItem);
+
+                    articleList.appendChild(articleItem);
+                    articleElements.push(articleItem);
                 });
             } else {
-                starredArticleList.innerHTML = '<li>スターしたアイテムがありません</li>';
+                articleList.innerHTML = '<li>スターしたアイテムがありません</li>';
             }
-            document.getElementById('starredSection').style.display = 'block';
-            document.getElementById('feedsSection').style.display = 'none';
-            document.getElementById('articlesSection').style.display = 'none';
+            updateNavigationButtons();
         }
+
 
         // 「スターしたアイテム」セクションに切り替える関数
         function showStarredSection() {
