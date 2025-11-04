@@ -244,15 +244,15 @@ def fetch_articles():
         published_at = None
         if hasattr(entry, "published_parsed"):
             published_at = datetime(*entry.published_parsed[:6])
-        # 記事を保存（全文は取得せず、フィードの内容のみ保存）
+        # 記事を保存（新着記事は unlisted = FALSE で追加）
         content = entry.description if hasattr(entry, "description") else entry.title
         # 記事を保存
         cur.execute(
             """
-            INSERT INTO articles_d4e5f6 (feed_id, title, url, content, published_at, token)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO articles_d4e5f6 (feed_id, title, url, content, published_at, token, unlisted)
+            VALUES (%s, %s, %s, %s, %s, %s, FALSE)
             ON CONFLICT (url, token) DO NOTHING
-        """,
+            """,
             (feed_id, entry.title, entry.link, content, published_at, token),
         )
     conn.commit()
@@ -267,26 +267,22 @@ def load_articles():
         token = request.cookies.get("token")
         if not token:
             return jsonify({"error": "Token not found"}), 403
-
         feed_id = request.args.get("feed_id")
         if not feed_id:
             return jsonify({"error": "Feed ID is required"}), 400
-
         conn = get_db_connection()
         cur = conn.cursor()
-
-        # 記事一覧を取得（カラム名を明示的にテーブル名で修飾）
+        # スターした記事と unlisted = FALSE の記事のみを表示
         cur.execute(
             """
             SELECT a.id, a.title, a.url, a.content, a.published_at, a.is_read, a.starred, f.url as feed_url
             FROM articles_d4e5f6 a
             JOIN feeds_a1b2c3 f ON a.feed_id = f.id
-            WHERE a.feed_id = %s AND a.token = %s
+            WHERE a.feed_id = %s AND a.token = %s AND (a.starred = TRUE OR a.unlisted = FALSE)
             ORDER BY a.published_at DESC
-        """,
+            """,
             (feed_id, token),
         )
-
         articles = [
             {
                 "id": row[0],
@@ -300,12 +296,9 @@ def load_articles():
             }
             for row in cur.fetchall()
         ]
-
         cur.close()
         conn.close()
-
         return jsonify({"articles": articles})
-
     except psycopg2.Error as e:
         print(f"Database error: {e}")
         return jsonify({"error": "Database error"}), 500
@@ -483,6 +476,31 @@ def load_starred_articles():
     cur.close()
     conn.close()
     return jsonify({"articles": articles})
+
+
+@app.route("/api/purge_feed", methods=["POST"])
+def purge_feed():
+    token = request.cookies.get("token")
+    if not token:
+        return jsonify({"error": "Token not found"}), 403
+    feed_id = request.json.get("feed_id")
+    if not feed_id:
+        return jsonify({"error": "Feed ID is required"}), 400
+    conn = get_db_connection()
+    cur = conn.cursor()
+    # スター以外の記事を unlisted = TRUE に更新
+    cur.execute(
+        """
+        UPDATE articles_d4e5f6
+        SET unlisted = TRUE
+        WHERE feed_id = %s AND token = %s AND starred = FALSE
+        """,
+        (feed_id, token),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"status": "success"})
 
 
 if __name__ == "__main__":
