@@ -163,7 +163,8 @@
             <ul class="feed-list" id="feedList"></ul>
         </div>
         <div id="articlesSection" class="section" style="display: none;">
-            <h2 id="articleHeader"><span id="backToFeeds"></span><span id="currentFeedTitle">ニュース一覧</span></h2>
+            <h2 id="articleHeader"><span id="backToFeeds">← </span><span id="currentFeedTitle">ニュース一覧</span></h2>
+            <input type="text" class="search-bar" id="articleSearchInput" placeholder="記事を検索...">
             <ul class="article-list" id="articleList"></ul>
         </div>
     </div>
@@ -487,13 +488,28 @@
             prevBtn.disabled = currentArticleIndex <= 0 || currentArticleIndex === -1;
             nextBtn.disabled = currentArticleIndex >= articleElements.length - 1 || currentArticleIndex === -1;
         }
-        // 検索バーのイベントリスナー
+        // 検索バーのイベントリスナー（フィード一覧用）
         document.getElementById('searchInput').addEventListener('input', function (e) {
             const searchTerm = e.target.value.toLowerCase();
             const feedItems = document.querySelectorAll('.feed-item');
             feedItems.forEach(item => {
                 const feedTitle = item.textContent.toLowerCase();
                 if (feedTitle.includes(searchTerm)) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+        // 検索バーのイベントリスナー（ニュース一覧用）
+        document.getElementById('articleSearchInput').addEventListener('input', function (e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const articleItems = document.querySelectorAll('.article-item');
+            articleItems.forEach(item => {
+                const title = item.querySelector('.article-title a').textContent.toLowerCase();
+                const summary = item.querySelector('.summary');
+                const summaryText = summary ? summary.textContent.toLowerCase() : '';
+                if (title.includes(searchTerm) || summaryText.includes(searchTerm)) {
                     item.style.display = '';
                 } else {
                     item.style.display = 'none';
