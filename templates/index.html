@@ -463,7 +463,6 @@
                 await loadStarredArticles();
                 document.getElementById('feedsSection').style.display = 'none';
                 document.getElementById('articlesSection').style.display = 'block';
-                document.getElementById('backToFeedsBtn').disabled = false;
                 document.getElementById('currentFeedTitle').textContent = 'スターしたアイテム';
             };
             feedList.appendChild(starredItem);
@@ -486,7 +485,6 @@
                     await loadArticles(feed.id);
                     document.getElementById('feedsSection').style.display = 'none';
                     document.getElementById('articlesSection').style.display = 'block';
-                    document.getElementById('backToFeedsBtn').disabled = false;
                 };
                 feedList.appendChild(feedItem);
             });
@@ -717,7 +715,6 @@
         // 「スターしたアイテム」セクションに切り替える関数
         function showStarredSection() {
             loadStarredArticles();
-            document.getElementById('backToFeedsBtn').disabled = false;
         }
 
         // ページの上下スクロール
@@ -731,7 +728,6 @@
         function backToFeeds() {
             document.getElementById('feedsSection').style.display = 'block';
             document.getElementById('articlesSection').style.display = 'none';
-            document.getElementById('backToFeedsBtn').disabled = true;
             currentArticleIndex = -1;
 
             // ナビゲーションのスターボタンを無効化
