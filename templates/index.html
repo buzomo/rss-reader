@@ -313,6 +313,13 @@
         .modal-button:hover {
             background-color: #e0e0e0;
         }
+
+        .highlight {
+            background-color: pink;
+            font-weight: bold;
+            padding: 0 2px;
+            border-radius: 2px;
+        }
     </style>
 </head>
 
@@ -747,16 +754,21 @@
             const article = articlesData[nextIndex];
             toggleSummary(nextArticle, article.id, article.content, article.url, nextIndex);
         }
-        function kanaConvert(s) {
-            return s.replace(/[ァ-ヴ]/g, m => String.fromCharCode(m.charCodeAt(0) - 0x60));
+        function normalize(s) {
+            return caseConvert(widthConvert(kanaConvert((s || '').trim())));
         }
-        function widthConvert(s) {
-            return s.replace(/[Ａ-Ｚａ-ｚ０-９]/g, m => String.fromCharCode(m.charCodeAt(0) - 0xFEE0));
-        }
+
         function caseConvert(s) {
             return s.toLowerCase();
         }
-        const normalize = s => caseConvert(widthConvert(kanaConvert((s || '').trim())));
+
+        function widthConvert(s) {
+            return s.replace(/[Ａ-Ｚａ-ｚ０-９]/g, m => String.fromCharCode(m.charCodeAt(0) - 0xFEE0));
+        }
+
+        function kanaConvert(s) {
+            return s.replace(/[ァ-ヴ]/g, m => String.fromCharCode(m.charCodeAt(0) - 0x60));
+        }
 
         // 検索バーのイベントリスナー（フィード一覧用）
         document.getElementById('searchInput').addEventListener('input', function (e) {
@@ -764,24 +776,38 @@
             const feedItems = document.querySelectorAll('.feed-item');
             feedItems.forEach(item => {
                 const feedTitle = normalize(item.querySelector('span:last-child').textContent);
+                const originalTitle = item.querySelector('span:last-child').textContent;
                 if (feedTitle.includes(searchTerm)) {
                     item.style.display = '';
+                    // ハイライト処理
+                    const highlightedTitle = highlightText(originalTitle, searchTerm);
+                    item.querySelector('span:last-child').innerHTML = highlightedTitle;
                 } else {
                     item.style.display = 'none';
                 }
             });
         });
 
+
         // 検索バーのイベントリスナー（ニュース一覧用）
         document.getElementById('articleSearchInput').addEventListener('input', function (e) {
             const searchTerm = normalize(e.target.value);
             const articleItems = document.querySelectorAll('.article-item');
             articleItems.forEach(item => {
-                const title = normalize(item.querySelector('.article-title a').textContent);
-                const summary = item.querySelector('.summary');
-                const summaryText = summary ? normalize(summary.textContent) : '';
+                const titleElement = item.querySelector('.article-title a');
+                const title = normalize(titleElement.textContent);
+                const summaryElement = item.querySelector('.summary');
+                const summaryText = summaryElement ? normalize(summaryElement.textContent) : '';
                 if (title.includes(searchTerm) || summaryText.includes(searchTerm)) {
                     item.style.display = '';
+                    // タイトルのハイライト処理
+                    const originalTitle = titleElement.textContent;
+                    titleElement.innerHTML = highlightText(originalTitle, searchTerm);
+                    // サマリーのハイライト処理
+                    if (summaryElement) {
+                        const originalSummary = summaryElement.textContent;
+                        summaryElement.innerHTML = highlightText(originalSummary, searchTerm);
+                    }
                 } else {
                     item.style.display = 'none';
                 }
@@ -793,16 +819,32 @@
             const searchTerm = normalize(e.target.value);
             const articleItems = document.querySelectorAll('#starredArticleList .article-item');
             articleItems.forEach(item => {
-                const title = normalize(item.querySelector('.article-title a').textContent);
-                const summary = item.querySelector('.summary');
-                const summaryText = summary ? normalize(summary.textContent) : '';
+                const titleElement = item.querySelector('.article-title a');
+                const title = normalize(titleElement.textContent);
+                const summaryElement = item.querySelector('.summary');
+                const summaryText = summaryElement ? normalize(summaryElement.textContent) : '';
                 if (title.includes(searchTerm) || summaryText.includes(searchTerm)) {
                     item.style.display = '';
+                    // タイトルのハイライト処理
+                    const originalTitle = titleElement.textContent;
+                    titleElement.innerHTML = highlightText(originalTitle, searchTerm);
+                    // サマリーのハイライト処理
+                    if (summaryElement) {
+                        const originalSummary = summaryElement.textContent;
+                        summaryElement.innerHTML = highlightText(originalSummary, searchTerm);
+                    }
                 } else {
                     item.style.display = 'none';
                 }
             });
         });
+        function highlightText(text, searchTerm) {
+            if (!searchTerm) return text;
+            const regex = new RegExp(searchTerm, 'gi');
+            return text.replace(regex, match => `<span class="highlight">${match}</span>`);
+        }
+
+
         // モーダル表示
         function showPurgeModal() {
             if (!currentFeedId) return;
