@@ -234,6 +234,26 @@ def update_feed():
     return jsonify({"status": "success"})
 
 
+@app.route("/api/all_feeds")
+def all_feeds():
+    token = request.cookies.get("token")
+    if not token:
+        return jsonify({"error": "Token not found"}), 403
+    conn = get_db_connection()
+    cur = conn.cursor()
+    # 全てのフィードを取得
+    cur.execute(
+        """
+        SELECT id, url, title FROM feeds_a1b2c3 WHERE token = %s ORDER BY priority DESC, title ASC
+        """,
+        (token,),
+    )
+    feeds = [{"id": row[0], "url": row[1], "title": row[2]} for row in cur.fetchall()]
+    cur.close()
+    conn.close()
+    return jsonify({"feeds": feeds})
+
+
 @app.route("/api/load_feeds")
 def load_feeds():
     token = request.cookies.get("token")
