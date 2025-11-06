@@ -112,64 +112,6 @@
             display: flex;
             align-items: center;
         }
-        .navigation-buttons {
-            position: fixed;
-            right: 20px;
-            bottom: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            z-index: 100;
-        }
-        .navigation-buttons .button-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            background-color: rgba(255, 255, 255, 0.9);
-            border-radius: 12px;
-            padding: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            border: 1px solid transparent;
-        }
-        .navigation-buttons button {
-            padding: 0;
-            font-size: 18px;
-            background-color: white;
-            color: #555;
-            border: none;
-            border-radius: 50%;
-            width: 44px;
-            height: 44px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            outline: none;
-            transition: all 0.2s;
-            box-shadow: 0 2px 4px transparent;
-        }
-        .navigation-buttons button:hover {
-            background-color: #f0f0f0;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-        }
-        .navigation-buttons button:disabled {
-            color: #ccc;
-            cursor: not-allowed;
-            background-color: white;
-            transform: none;
-            box-shadow: none;
-        }
-        #starNavBtn {
-            color: #ffa500;
-        }
-        #starNavBtn.starred {
-            color: #ffd700;
-        }
-        #backToFeedsBtn {
-            color: #4CAF50;
-            font-size: 20px;
-        }
         #fileInput {
             display: none;
         }
@@ -228,39 +170,6 @@
             pointer-events: auto;
             background-color: transparent;
         }
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 200;
-            align-items: center;
-            justify-content: center;
-        }
-        .modal-content {
-            background-color: white;
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            max-width: 300px;
-            width: 80%;
-        }
-        .modal-button {
-            margin: 10px;
-            padding: 8px 16px;
-            cursor: pointer;
-            background-color: #f0f0f0;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        .modal-button:hover {
-            background-color: #e0e0e0;
-        }
         .highlight {
             background-color: pink;
             font-weight: bold;
@@ -276,13 +185,6 @@
     </div>
     <div id="bottomEdgeArea" onclick="backToFeeds()"></div>
     <div id="leftEdgeArea" onclick="executePurge()"></div>
-    <div id="purgeModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <p>スターした記事以外をunlistedにしますか？</p>
-            <button id="confirmPurge" class="modal-button">OK</button>
-            <button id="cancelPurge" class="modal-button">キャンセル</button>
-        </div>
-    </div>
     <div class="container">
         <div id="starredSection" class="section" style="display: none;">
             <h2>スターしたアイテム</h2>
@@ -301,13 +203,6 @@
             </h2>
             <input type="text" class="search-bar" id="articleSearchInput" placeholder="記事を検索...">
             <ul class="article-list" id="articleList"></ul>
-        </div>
-    </div>
-    <!-- ナビゲーションボタンを追加 -->
-    <div class="navigation-buttons">
-        <div class="button-group">
-            <button id="starNavBtn" onclick="toggleStarCurrentArticle()">☆</button>
-            <button id="backToFeedsBtn" onclick="backToFeeds()">←</button>
         </div>
     </div>
     <input type="file" id="fileInput" accept=".opml,.xml" />
@@ -336,9 +231,7 @@
             const file = e.target.files[0];
             if (!file) return;
             if (!file.name.match(/\.(opml|xml)$/i)) {
-                showModal({
-                    message: 'OPMLファイル (.opml, .xml) を選択してください。',
-                });
+                console.log('OPMLファイル (.opml, .xml) を選択してください。');
                 return;
             }
             importOPML(file);
@@ -351,15 +244,11 @@
                 const opmlText = e.target.result;
                 const feeds = parseOPML(opmlText);
                 if (feeds.length === 0) {
-                    showModal({
-                        message: '有効なフィードが見つかりませんでした。',
-                    });
+                    console.log('有効なフィードが見つかりませんでした。');
                     return;
                 }
                 await subscribeFeeds(feeds);
-                showModal({
-                    message: `${feeds.length}件のフィードを購読しました。`,
-                });
+                console.log(`${feeds.length}件のフィードを購読しました。`);
                 location.reload();
             };
             reader.readAsText(file);
@@ -536,13 +425,6 @@
                 body: JSON.stringify({ article_id: articleId })
             });
             articleItem.scrollIntoView({ behavior: 'auto', block: 'start' });
-            const starNavBtn = document.getElementById('starNavBtn');
-            if (starNavBtn) {
-                const isStarred = articleItem.dataset.starred === 'true';
-                starNavBtn.textContent = isStarred ? '★' : '☆';
-                starNavBtn.classList.toggle('starred', isStarred);
-                starNavBtn.disabled = false;
-            }
         }
 
         async function toggleStarred(articleId, starred, button) {
@@ -557,26 +439,12 @@
                 if (articleElements[currentArticleIndex]) {
                     articleElements[currentArticleIndex].dataset.starred = starred;
                 }
-                const starNavBtn = document.getElementById('starNavBtn');
-                if (starNavBtn) {
-                    starNavBtn.textContent = starred ? '★' : '☆';
-                    starNavBtn.classList.toggle('starred', starred);
-                }
                 await fetch('/api/mark_as_read', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ article_id: articleId })
                 });
             }
-        }
-
-        async function toggleStarCurrentArticle() {
-            if (currentArticleIndex === -1) return;
-            const articleId = articlesData[currentArticleIndex].id;
-            const articleItem = articleElements[currentArticleIndex];
-            const isStarred = articleItem.dataset.starred === 'true';
-            const newStarred = !isStarred;
-            await toggleStarred(articleId, newStarred, articleItem.querySelector('.star-btn'));
         }
 
         async function subscribeFeed(articleUrl) {
@@ -650,11 +518,7 @@
             document.getElementById('feedsSection').style.display = 'block';
             document.getElementById('articlesSection').style.display = 'none';
             currentArticleIndex = -1;
-            const starNavBtn = document.getElementById('starNavBtn');
-            if (starNavBtn) {
-                starNavBtn.disabled = true;
-            }
-            loadFeeds(); // フィード一覧を更新
+            loadFeeds();
         }
 
         function normalize(s) {
@@ -739,58 +603,9 @@
             return text.replace(regex, match => `<span class="highlight">${match}</span>`);
         }
 
-        function showModal({ message, onConfirm, onCancel, confirmText = "OK", cancelText = "キャンセル" }) {
-            const modal = document.createElement('div');
-            modal.className = 'modal';
-            modal.style.display = 'flex';
-            const modalContent = document.createElement('div');
-            modalContent.className = 'modal-content';
-            const p = document.createElement('p');
-            p.textContent = message;
-            modalContent.appendChild(p);
-            const buttonContainer = document.createElement('div');
-            buttonContainer.style.display = 'flex';
-            buttonContainer.style.justifyContent = 'center';
-            buttonContainer.style.gap = '10px';
-            buttonContainer.style.marginTop = '20px';
-            if (onCancel) {
-                const cancelButton = document.createElement('button');
-                cancelButton.className = 'modal-button';
-                cancelButton.textContent = cancelText;
-                cancelButton.onclick = () => {
-                    modal.remove();
-                    if (onCancel) onCancel();
-                };
-                buttonContainer.appendChild(cancelButton);
-            }
-            if (onConfirm) {
-                const confirmButton = document.createElement('button');
-                confirmButton.className = 'modal-button';
-                confirmButton.textContent = confirmText;
-                confirmButton.onclick = () => {
-                    modal.remove();
-                    if (onConfirm) onConfirm();
-                };
-                buttonContainer.appendChild(confirmButton);
-            } else if (!onCancel) {
-                const okButton = document.createElement('button');
-                okButton.className = 'modal-button';
-                okButton.textContent = 'OK';
-                okButton.onclick = () => {
-                    modal.remove();
-                };
-                buttonContainer.appendChild(okButton);
-            }
-            modalContent.appendChild(buttonContainer);
-            modal.appendChild(modalContent);
-            document.body.appendChild(modal);
-        }
-
         async function executePurge() {
             if (!currentFeedId) {
-                showModal({
-                    message: 'フィードが選択されていません。',
-                });
+                console.log('フィードが選択されていません。');
                 return;
             }
             const response = await fetch('/api/purge_feed', {
@@ -799,18 +614,12 @@
                 body: JSON.stringify({ feed_id: currentFeedId })
             });
             if (response.ok) {
-                showModal({
-                    message: 'スター以外の記事を非表示にしました。',
-                });
-                await loadArticles(currentFeedId);
+                backToFeeds();
             } else {
-                showModal({
-                    message: 'Purgeに失敗しました。',
-                });
+                console.log('Purgeに失敗しました。');
             }
         }
 
-        // スターした記事を全て既読にする
         async function markAllStarredAsRead() {
             const response = await fetch('/api/mark_starred_as_read', {
                 method: 'POST',
