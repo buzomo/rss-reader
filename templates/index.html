@@ -431,6 +431,7 @@
             });
         }
 
+        // 記事一覧を読み込む（ソートロジックを削除）
         async function loadArticles(feedId) {
             try {
                 await fetch(`/api/fetch_articles`, {
@@ -449,17 +450,6 @@
             articleList.innerHTML = '';
             articleElements = [];
             articlesData = data.articles || [];
-
-            articlesData.sort((a, b) => {
-                if (a.starred === b.starred && a.is_read === b.is_read) {
-                    return new Date(b.published_at) - new Date(a.published_at);
-                }
-                if (!a.is_read && b.is_read) return -1;
-                if (a.is_read && !b.is_read) return 1;
-                if (!a.starred && b.starred) return 1;
-                if (a.starred && !b.starred) return -1;
-                return 0;
-            });
 
             if (articlesData.length > 0) {
                 articlesData.forEach((article, index) => {

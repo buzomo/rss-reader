@@ -279,7 +279,13 @@ def load_articles():
             FROM articles_d4e5f6 a
             JOIN feeds_a1b2c3 f ON a.feed_id = f.id
             WHERE a.feed_id = %s AND a.token = %s AND (a.starred = TRUE OR a.unlisted = FALSE)
-            ORDER BY a.published_at DESC
+            ORDER BY
+                CASE
+                    WHEN a.is_read = FALSE THEN 0  -- 未読が最優先
+                    WHEN a.is_read = TRUE AND a.starred = FALSE THEN 1  -- 既読が次
+                    WHEN a.starred = TRUE THEN 2  -- スターが最後
+                END,
+                a.published_at DESC  -- それぞれのグループ内で新しい順
             """,
             (feed_id, token),
         )
@@ -304,6 +310,8 @@ def load_articles():
         return jsonify({"error": "Database error"}), 500
     except Exception as e:
         print(f"Unexpected error: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
         return jsonify({"error": "Internal server error"}), 500
 
 
