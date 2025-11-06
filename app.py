@@ -230,7 +230,8 @@ def update_feed():
             (feed_id, entry.title, entry.link, content, published_at, token),
         )
         new_articles += cur.rowcount
-    # フィードの更新頻度と最後のチェック時間を更新
+
+    # フィードの更新頻度と最後にチェックした時間を更新
     cur.execute(
         """
         UPDATE feeds_a1b2c3
@@ -239,10 +240,62 @@ def update_feed():
         """,
         (new_articles, feed_id, token),
     )
+
+    # 更新頻度に基づいて次回のチェック時間を設定
+    if new_articles > 0:
+        # 更新頻度に基づいて次回のチェック時間を設定
+        cur.execute(
+            """
+            UPDATE feeds_a1b2c3
+            SET next_check = NOW() + INTERVAL '15 minutes' * (1 / (update_frequency + 1))
+            WHERE id = %s AND token = %s
+            """,
+            (feed_id, token),
+        )
+    else:
+        # 更新がない場合は次回のチェック時間を延長
+        cur.execute(
+            """
+            UPDATE feeds_a1b2c3
+            SET next_check = NOW() + INTERVAL '1 hour' * (update_frequency + 1)
+            WHERE id = %s AND token = %s
+            """,
+            (feed_id, token),
+        )
+
     conn.commit()
     cur.close()
     conn.close()
     return jsonify({"status": "success", "new_articles": new_articles})
+
+
+
+@app.route("/api/feeds_to_poll")
+def feeds_to_poll():
+    token = request.cookies.get("token")
+    if not token:
+        return jsonify({"error": "Token not found"}), 403
+    conn = get_db_connection()
+    cur = conn.cursor()
+    # 次回のチェック時間が現在時刻より前のフィードを取得
+    cur.execute(
+        """
+        SELECT id, url, title
+        FROM feeds_a1b2c3
+        WHERE token = %s
+        AND (next_check IS NULL OR next_check <= NOW())
+        ORDER BY priority DESC, update_frequency DESC, title ASC
+        """,
+        (token,),
+    )
+    feeds = [
+        {"id": row[0], "url": row[1], "title": row[2]}
+        for row in cur.fetchall()
+    ]
+    cur.close()
+    conn.close()
+    return jsonify({"feeds": feeds})
+
 
 
 @app.route("/api/all_feeds_with_frequency")
