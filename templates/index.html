@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,17 +15,20 @@
             padding: 0;
             background-color: #f4f4f4;
         }
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
+
         .search-bar {
             width: 97%;
             padding: 10px;
             margin-bottom: 20px;
             font-size: 16px;
         }
+
         .section {
             background-color: white;
             border-radius: 5px;
@@ -32,11 +36,13 @@
             margin-bottom: 20px;
             box-shadow: 0 2px 5px transparent;
         }
+
         .feed-list,
         .article-list {
             list-style: none;
             padding: 0;
         }
+
         .feed-item {
             padding: 12px 10px;
             border-bottom: 1px solid #eee;
@@ -44,30 +50,37 @@
             align-items: center;
             cursor: pointer;
         }
+
         .feed-item:hover {
             background-color: #f9f9f9;
         }
+
         .article-item {
             padding: 12px 10px;
             border-bottom: 1px solid #eee;
             display: flex;
             flex-direction: column;
         }
+
         .article-item:hover {
             background-color: #f9f9f9;
         }
+
         .unread {
             font-weight: bold;
             color: black;
         }
+
         .read {
             color: #999;
         }
+
         .article-header {
             display: flex;
             align-items: flex-start;
             margin-bottom: 8px;
         }
+
         .star-btn {
             margin-right: 10px;
             font-size: 20px;
@@ -77,26 +90,32 @@
             min-width: 30px;
             line-height: 1;
         }
+
         .star-btn.starred {
             color: #ffd700;
         }
+
         .article-title {
             flex-grow: 1;
         }
+
         .article-title a {
             color: inherit;
             text-decoration: none;
             font-size: 16px;
         }
+
         .article-title a:hover {
             text-decoration: underline;
         }
+
         .article-date {
             color: #999;
             font-size: 14px;
             margin-left: 10px;
             white-space: nowrap;
         }
+
         .summary {
             margin-top: 12px;
             font-size: 16px;
@@ -107,14 +126,17 @@
             border-radius: 4px;
             border-left: 4px solid #e0e0e0;
         }
+
         h2 {
             margin-bottom: 10px;
             display: flex;
             align-items: center;
         }
+
         #fileInput {
             display: none;
         }
+
         .read-count-badge {
             background-color: #4CAF50;
             color: white;
@@ -125,9 +147,11 @@
             min-width: 20px;
             text-align: center;
         }
+
         #starredSection {
             display: none;
         }
+
         #rightEdgeArea {
             position: fixed;
             top: 0;
@@ -137,6 +161,7 @@
             z-index: 100;
             pointer-events: auto;
         }
+
         #rightEdgeArea .page-up {
             position: absolute;
             top: 0;
@@ -144,6 +169,7 @@
             width: 40px;
             height: 50vh;
         }
+
         #rightEdgeArea .page-down {
             position: absolute;
             top: 50vh;
@@ -151,6 +177,7 @@
             width: 40px;
             height: 50vh;
         }
+
         #bottomEdgeArea {
             position: fixed;
             bottom: 0;
@@ -160,6 +187,7 @@
             z-index: 100;
             pointer-events: auto;
         }
+
         #leftEdgeArea {
             position: fixed;
             top: 0;
@@ -170,6 +198,7 @@
             pointer-events: auto;
             background-color: transparent;
         }
+
         .highlight {
             background-color: pink;
             font-weight: bold;
@@ -178,6 +207,7 @@
         }
     </style>
 </head>
+
 <body>
     <div id="rightEdgeArea">
         <div class="page-up" onclick="scrollPage('up')"></div>
@@ -213,6 +243,7 @@
         let currentArticleIndex = -1;
         let articleElements = [];
         let articlesData = [];
+        let feedsData = []; // Global variable to store feeds data
 
         function getHostname(url) {
             try {
@@ -290,6 +321,7 @@
         async function loadFeeds() {
             const response = await fetch('/api/load_feeds');
             const data = await response.json();
+            feedsData = data.feeds; // Store the feeds data globally
             const feedList = document.getElementById('feedList');
             feedList.innerHTML = '';
             const starredItem = document.createElement('li');
@@ -334,7 +366,6 @@
             articleList.innerHTML = '';
             articleElements = [];
             articlesData = data.articles || [];
-
             if (articlesData.length > 0) {
                 articlesData.forEach((article, index) => {
                     const articleItem = document.createElement('li');
@@ -597,13 +628,43 @@
                 alert('フィードが選択されていません。');
                 return;
             }
-            const response = await fetch('/api/purge_feed', {
+            const purgeResponse = await fetch('/api/purge_feed', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ feed_id: currentFeedId })
             });
-            if (response.ok) {
-                backToFeeds();
+            if (purgeResponse.ok) {
+                // Fetch the latest feed data
+                const response = await fetch('/api/load_feeds');
+                const data = await response.json();
+                feedsData = data.feeds;
+                // Find the index of the current feed
+                const currentFeedIndex = feedsData.findIndex(feed => feed.id === currentFeedId);
+                // Find the next unread feed after the current one
+                let nextFeed = null;
+                for (let i = currentFeedIndex + 1; i < feedsData.length; i++) {
+                    if (feedsData[i].unread_count > 0) {
+                        nextFeed = feedsData[i];
+                        break;
+                    }
+                }
+                // If not found, look from the start of the list
+                if (!nextFeed) {
+                    for (let i = 0; i < currentFeedIndex; i++) {
+                        if (feedsData[i].unread_count > 0) {
+                            nextFeed = feedsData[i];
+                            break;
+                        }
+                    }
+                }
+                if (nextFeed) {
+                    currentFeedId = nextFeed.id;
+                    document.getElementById('currentFeedTitle').textContent = nextFeed.title;
+                    await loadArticles(nextFeed.id);
+                } else {
+                    // If no unread feeds are found, go back to the feed list
+                    backToFeeds();
+                }
             } else {
                 alert('Purgeに失敗しました。');
             }
@@ -627,4 +688,5 @@
         });
     </script>
 </body>
+
 </html>
