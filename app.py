@@ -212,6 +212,7 @@ def update_feed():
     feed_url = result[0]
     # フィードをパースして記事を取得
     feed = feedparser.parse(feed_url)
+    new_articles = 0
     for entry in feed.entries:
         # 公開日時をパース
         published_at = None
@@ -228,10 +229,43 @@ def update_feed():
             """,
             (feed_id, entry.title, entry.link, content, published_at, token),
         )
+        new_articles += cur.rowcount
+    # フィードの更新頻度と最後のチェック時間を更新
+    cur.execute(
+        """
+        UPDATE feeds_a1b2c3
+        SET update_frequency = update_frequency + %s, last_checked = NOW()
+        WHERE id = %s AND token = %s
+        """,
+        (new_articles, feed_id, token),
+    )
     conn.commit()
     cur.close()
     conn.close()
-    return jsonify({"status": "success"})
+    return jsonify({"status": "success", "new_articles": new_articles})
+
+
+@app.route("/api/all_feeds_with_frequency")
+def all_feeds_with_frequency():
+    token = request.cookies.get("token")
+    if not token:
+        return jsonify({"error": "Token not found"}), 403
+    conn = get_db_connection()
+    cur = conn.cursor()
+    # 全てのフィードとその更新頻度を取得
+    cur.execute(
+        """
+        SELECT id, url, title, update_frequency FROM feeds_a1b2c3 WHERE token = %s ORDER BY update_frequency DESC, title ASC
+        """,
+        (token,),
+    )
+    feeds = [
+        {"id": row[0], "url": row[1], "title": row[2], "update_frequency": row[3]}
+        for row in cur.fetchall()
+    ]
+    cur.close()
+    conn.close()
+    return jsonify({"feeds": feeds})
 
 
 @app.route("/api/all_feeds")
