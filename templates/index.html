@@ -231,7 +231,7 @@
             const file = e.target.files[0];
             if (!file) return;
             if (!file.name.match(/\.(opml|xml)$/i)) {
-                console.log('OPMLファイル (.opml, .xml) を選択してください。');
+                alert('OPMLファイル (.opml, .xml) を選択してください。');
                 return;
             }
             importOPML(file);
@@ -244,11 +244,11 @@
                 const opmlText = e.target.result;
                 const feeds = parseOPML(opmlText);
                 if (feeds.length === 0) {
-                    console.log('有効なフィードが見つかりませんでした。');
+                    alert('有効なフィードが見つかりませんでした。');
                     return;
                 }
                 await subscribeFeeds(feeds);
-                console.log(`${feeds.length}件のフィードを購読しました。`);
+                alert(`${feeds.length}件のフィードを購読しました。`);
                 location.reload();
             };
             reader.readAsText(file);
@@ -308,11 +308,11 @@
             data.feeds.forEach(feed => {
                 const feedItem = document.createElement('li');
                 feedItem.className = 'feed-item';
-                const readCount = feed.read_count || 0;
-                const readBadge = document.createElement('span');
-                readBadge.className = 'read-count-badge';
-                readBadge.textContent = readCount;
-                feedItem.appendChild(readBadge);
+                const unreadCount = feed.unread_count || 0;
+                const unreadBadge = document.createElement('span');
+                unreadBadge.className = 'read-count-badge';
+                unreadBadge.textContent = unreadCount;
+                feedItem.appendChild(unreadBadge);
                 const feedTitle = document.createElement('span');
                 feedTitle.textContent = feed.title;
                 feedItem.appendChild(feedTitle);
@@ -328,17 +328,6 @@
         }
 
         async function loadArticles(feedId) {
-            try {
-                await fetch(`/api/fetch_articles`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ feed_id: feedId })
-                });
-            } catch (e) {
-                console.error("Failed to fetch articles:", e);
-            }
             const response = await fetch(`/api/load_articles?feed_id=${feedId}`);
             const data = await response.json();
             const articleList = document.getElementById('articleList');
@@ -605,7 +594,7 @@
 
         async function executePurge() {
             if (!currentFeedId) {
-                console.log('フィードが選択されていません。');
+                alert('フィードが選択されていません。');
                 return;
             }
             const response = await fetch('/api/purge_feed', {
@@ -616,7 +605,7 @@
             if (response.ok) {
                 backToFeeds();
             } else {
-                console.log('Purgeに失敗しました。');
+                alert('Purgeに失敗しました。');
             }
         }
 

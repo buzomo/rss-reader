@@ -190,6 +190,50 @@ def add_feed():
     return jsonify({"status": "success", "title": feed_title})
 
 
+@app.route("/api/update_feed", methods=["POST"])
+def update_feed():
+    token = request.cookies.get("token") or request.json.get("token")
+    if not token:
+        return jsonify({"error": "Token not found"}), 403
+    feed_id = request.json.get("feed_id")
+    if not feed_id:
+        return jsonify({"error": "Feed ID is required"}), 400
+    conn = get_db_connection()
+    cur = conn.cursor()
+    # フィードURLを取得
+    cur.execute(
+        "SELECT url FROM feeds_a1b2c3 WHERE id = %s AND token = %s", (feed_id, token)
+    )
+    result = cur.fetchone()
+    if not result:
+        cur.close()
+        conn.close()
+        return jsonify({"error": "Feed not found"}), 404
+    feed_url = result[0]
+    # フィードをパースして記事を取得
+    feed = feedparser.parse(feed_url)
+    for entry in feed.entries:
+        # 公開日時をパース
+        published_at = None
+        if hasattr(entry, "published_parsed"):
+            published_at = datetime(*entry.published_parsed[:6])
+        # 記事を保存（新着記事は unlisted = FALSE で追加）
+        content = entry.description if hasattr(entry, "description") else entry.title
+        # 記事を保存
+        cur.execute(
+            """
+            INSERT INTO articles_d4e5f6 (feed_id, title, url, content, published_at, token, unlisted)
+            VALUES (%s, %s, %s, %s, %s, %s, FALSE)
+            ON CONFLICT (url, token) DO NOTHING
+            """,
+            (feed_id, entry.title, entry.link, content, published_at, token),
+        )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"status": "success"})
+
+
 @app.route("/api/load_feeds")
 def load_feeds():
     token = request.cookies.get("token")
@@ -197,19 +241,23 @@ def load_feeds():
         return jsonify({"error": "Token not found"}), 403
     conn = get_db_connection()
     cur = conn.cursor()
-    # フィードごとの既読数をカウント
+    # 新しい未読があるフィードだけを表示
     cur.execute(
         """
         SELECT f.id, f.url, f.title,
-               (SELECT COUNT(*) FROM articles_d4e5f6 WHERE feed_id = f.id AND is_read = TRUE AND token = f.token) as read_count
+               (SELECT COUNT(*) FROM articles_d4e5f6 WHERE feed_id = f.id AND is_read = FALSE AND token = f.token AND unlisted = FALSE) as unread_count
         FROM feeds_a1b2c3 f
         WHERE f.token = %s
-        ORDER BY read_count DESC
-    """,
+        AND EXISTS (
+            SELECT 1 FROM articles_d4e5f6
+            WHERE feed_id = f.id AND is_read = FALSE AND token = f.token AND unlisted = FALSE
+        )
+        ORDER BY unread_count DESC
+        """,
         (token,),
     )
     feeds = [
-        {"id": row[0], "url": row[1], "title": row[2], "read_count": row[3]}
+        {"id": row[0], "url": row[1], "title": row[2], "unread_count": row[3]}
         for row in cur.fetchall()
     ]
     cur.close()
