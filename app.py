@@ -377,6 +377,28 @@ def mark_as_read():
     return jsonify({"status": "success"})
 
 
+@app.route("/api/mark_starred_as_read", methods=["POST"])
+def mark_starred_as_read():
+    token = request.cookies.get("token")
+    if not token:
+        return jsonify({"error": "Token not found"}), 403
+    conn = get_db_connection()
+    cur = conn.cursor()
+    # スターした記事を全て既読にする
+    cur.execute(
+        """
+        UPDATE articles_d4e5f6
+        SET is_read = TRUE
+        WHERE starred = TRUE AND token = %s
+        """,
+        (token,),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"status": "success"})
+
+
 @app.route("/api/toggle_starred", methods=["POST"])
 def toggle_starred():
     token = request.cookies.get("token")
@@ -386,14 +408,14 @@ def toggle_starred():
     new_starred = request.json.get("starred")
     conn = get_db_connection()
     cur = conn.cursor()
-    # お気に入り状態を更新
+    # お気に入り状態を更新し、スターした場合は既読にする
     cur.execute(
         """
         UPDATE articles_d4e5f6
-        SET starred = %s
+        SET starred = %s, is_read = CASE WHEN %s = TRUE THEN TRUE ELSE is_read END
         WHERE id = %s AND token = %s
-    """,
-        (new_starred, article_id, token),
+        """,
+        (new_starred, new_starred, article_id, token),
     )
     conn.commit()
     cur.close()

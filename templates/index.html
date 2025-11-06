@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,17 +15,20 @@
             padding: 0;
             background-color: #f4f4f4;
         }
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
+
         .search-bar {
             width: 97%;
             padding: 10px;
             margin-bottom: 20px;
             font-size: 16px;
         }
+
         .section {
             background-color: white;
             border-radius: 5px;
@@ -32,11 +36,13 @@
             margin-bottom: 20px;
             box-shadow: 0 2px 5px transparent;
         }
+
         .feed-list,
         .article-list {
             list-style: none;
             padding: 0;
         }
+
         .feed-item {
             padding: 12px 10px;
             border-bottom: 1px solid #eee;
@@ -44,30 +50,37 @@
             align-items: center;
             cursor: pointer;
         }
+
         .feed-item:hover {
             background-color: #f9f9f9;
         }
+
         .article-item {
             padding: 12px 10px;
             border-bottom: 1px solid #eee;
             display: flex;
             flex-direction: column;
         }
+
         .article-item:hover {
             background-color: #f9f9f9;
         }
+
         .unread {
             font-weight: bold;
             color: black;
         }
+
         .read {
             color: #999;
         }
+
         .article-header {
             display: flex;
             align-items: flex-start;
             margin-bottom: 8px;
         }
+
         .star-btn {
             margin-right: 10px;
             font-size: 20px;
@@ -77,26 +90,32 @@
             min-width: 30px;
             line-height: 1;
         }
+
         .star-btn.starred {
             color: #ffd700;
         }
+
         .article-title {
             flex-grow: 1;
         }
+
         .article-title a {
             color: inherit;
             text-decoration: none;
             font-size: 16px;
         }
+
         .article-title a:hover {
             text-decoration: underline;
         }
+
         .article-date {
             color: #999;
             font-size: 14px;
             margin-left: 10px;
             white-space: nowrap;
         }
+
         .summary {
             margin-top: 12px;
             font-size: 16px;
@@ -107,11 +126,13 @@
             border-radius: 4px;
             border-left: 4px solid #e0e0e0;
         }
+
         h2 {
             margin-bottom: 10px;
             display: flex;
             align-items: center;
         }
+
         .navigation-buttons {
             position: fixed;
             right: 20px;
@@ -121,6 +142,7 @@
             gap: 8px;
             z-index: 100;
         }
+
         .navigation-buttons .button-group {
             display: flex;
             flex-direction: column;
@@ -131,6 +153,7 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             border: 1px solid transparent;
         }
+
         .navigation-buttons button {
             padding: 0;
             font-size: 18px;
@@ -148,11 +171,13 @@
             transition: all 0.2s;
             box-shadow: 0 2px 4px transparent;
         }
+
         .navigation-buttons button:hover {
             background-color: #f0f0f0;
             transform: translateY(-1px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
         }
+
         .navigation-buttons button:disabled {
             color: #ccc;
             cursor: not-allowed;
@@ -160,19 +185,16 @@
             transform: none;
             box-shadow: none;
         }
-        #starNavBtn {
-            color: #ffa500;
-        }
-        #starNavBtn.starred {
-            color: #ffd700;
-        }
+
         #backToFeedsBtn {
             color: #4CAF50;
             font-size: 20px;
         }
+
         #fileInput {
             display: none;
         }
+
         .read-count-badge {
             background-color: #4CAF50;
             color: white;
@@ -183,9 +205,11 @@
             min-width: 20px;
             text-align: center;
         }
+
         #starredSection {
             display: none;
         }
+
         #rightEdgeArea {
             position: fixed;
             top: 0;
@@ -195,6 +219,7 @@
             z-index: 100;
             pointer-events: auto;
         }
+
         #rightEdgeArea .page-up {
             position: absolute;
             top: 0;
@@ -202,6 +227,7 @@
             width: 40px;
             height: 50vh;
         }
+
         #rightEdgeArea .page-down {
             position: absolute;
             top: 50vh;
@@ -209,6 +235,7 @@
             width: 40px;
             height: 50vh;
         }
+
         #bottomEdgeArea {
             position: fixed;
             bottom: 0;
@@ -218,6 +245,7 @@
             z-index: 100;
             pointer-events: auto;
         }
+
         #leftEdgeArea {
             position: fixed;
             top: 0;
@@ -228,6 +256,7 @@
             pointer-events: auto;
             background-color: transparent;
         }
+
         .modal {
             display: none;
             position: fixed;
@@ -240,6 +269,7 @@
             align-items: center;
             justify-content: center;
         }
+
         .modal-content {
             background-color: white;
             padding: 20px;
@@ -249,6 +279,7 @@
             max-width: 300px;
             width: 80%;
         }
+
         .modal-button {
             margin: 10px;
             padding: 8px 16px;
@@ -258,9 +289,11 @@
             border-radius: 4px;
             font-size: 14px;
         }
+
         .modal-button:hover {
             background-color: #e0e0e0;
         }
+
         .highlight {
             background-color: pink;
             font-weight: bold;
@@ -269,6 +302,7 @@
         }
     </style>
 </head>
+
 <body>
     <div id="rightEdgeArea">
         <div class="page-up" onclick="scrollPage('up')"></div>
@@ -544,14 +578,22 @@
                 if (articleElements[currentArticleIndex]) {
                     articleElements[currentArticleIndex].dataset.starred = starred;
                 }
-                const starNavBtn = document.getElementById('starNavBtn');
-                starNavBtn.textContent = starred ? '★' : '☆';
-                starNavBtn.classList.toggle('starred', starred);
                 await fetch('/api/mark_as_read', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ article_id: articleId })
                 });
+            }
+        }
+        async function markAllStarredAsRead() {
+            const response = await fetch('/api/mark_starred_as_read', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            });
+            if (response.ok) {
+                console.log("スターした記事を全て既読にしました。");
+            } else {
+                console.error("既読更新に失敗しました。");
             }
         }
 
@@ -635,8 +677,6 @@
             document.getElementById('feedsSection').style.display = 'block';
             document.getElementById('articlesSection').style.display = 'none';
             currentArticleIndex = -1;
-            const starNavBtn = document.getElementById('starNavBtn');
-            starNavBtn.disabled = true;
         }
 
         function normalize(s) {
@@ -809,7 +849,10 @@
             document.getElementById('confirmPurge').addEventListener('click', executePurge);
             document.getElementById('cancelPurge').addEventListener('click', hidePurgeModal);
             loadFeeds();
+            markAllStarredAsRead(); // 追加
+
         });
     </script>
 </body>
+
 </html>
