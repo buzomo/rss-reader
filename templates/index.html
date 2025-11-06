@@ -530,11 +530,6 @@
                 body: JSON.stringify({ article_id: articleId })
             });
             articleItem.scrollIntoView({ behavior: 'auto', block: 'start' });
-            const starNavBtn = document.getElementById('starNavBtn');
-            const isStarred = articleItem.dataset.starred === 'true';
-            starNavBtn.textContent = isStarred ? '★' : '☆';
-            starNavBtn.classList.toggle('starred', isStarred);
-            starNavBtn.disabled = false;
         }
 
         async function toggleStarred(articleId, starred, button) {
