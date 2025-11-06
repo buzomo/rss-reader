@@ -312,7 +312,7 @@ def fetch_articles():
 @app.route("/api/load_articles")
 def load_articles():
     try:
-        token = request.cookies.get("token")
+        token = request.cookies.get("token") or request.args.get("token")
         if not token:
             return jsonify({"error": "Token not found"}), 403
         feed_id = request.args.get("feed_id")
