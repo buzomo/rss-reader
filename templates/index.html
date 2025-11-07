@@ -550,7 +550,7 @@
                     }
                     break;
                 case 's':
-                    e.prevent認定();
+                    e.preventDefault();
                     if (selectedIndex >= 0 && selectedIndex < articleElements.length) {
                         const articleId = articleElements[selectedIndex].dataset.articleId;
                         const isStarred = articleElements[selectedIndex].dataset.starred === 'true';
