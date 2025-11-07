@@ -204,7 +204,7 @@
             const file = e.target.files[0];
             if (!file) return;
             if (!file.name.match(/\.(opml|xml)$/i)) {
-                alert('OPMLファイル (.opml, .xml) を選択してください。');
+                console.log('OPMLファイル (.opml, .xml) を選択してください。');
                 return;
             }
             importOPML(file);
@@ -217,11 +217,11 @@
                 const opmlText = e.target.result;
                 const feeds = parseOPML(opmlText);
                 if (feeds.length === 0) {
-                    alert('有効なフィードが見つかりませんでした。');
+                    console.log('有効なフィードが見つかりませんでした。');
                     return;
                 }
                 await subscribeFeeds(feeds);
-                alert(`${feeds.length}件のフィードを購読しました。`);
+                console.log(`${feeds.length}件のフィードを購読しました。`);
                 location.reload();
             };
             reader.readAsText(file);
@@ -440,7 +440,7 @@
 
         async function executePurge() {
             if (!currentFeedId) {
-                alert('フィードが選択されていません。');
+                console.log('フィードが選択されていません。');
                 return;
             }
             const purgeResponse = await fetch('/api/purge_feed', {
@@ -489,7 +489,7 @@
                     }
                 }
             } else {
-                alert('パージに失敗しました。');
+                console.log('パージに失敗しました。');
             }
         }
 
