@@ -269,7 +269,6 @@ def update_feed():
     return jsonify({"status": "success", "new_articles": new_articles})
 
 
-
 @app.route("/api/feeds_to_poll")
 def feeds_to_poll():
     token = request.cookies.get("token")
@@ -288,14 +287,10 @@ def feeds_to_poll():
         """,
         (token,),
     )
-    feeds = [
-        {"id": row[0], "url": row[1], "title": row[2]}
-        for row in cur.fetchall()
-    ]
+    feeds = [{"id": row[0], "url": row[1], "title": row[2]} for row in cur.fetchall()]
     cur.close()
     conn.close()
     return jsonify({"feeds": feeds})
-
 
 
 @app.route("/api/all_feeds_with_frequency")
@@ -328,10 +323,10 @@ def all_feeds():
         return jsonify({"error": "Token not found"}), 403
     conn = get_db_connection()
     cur = conn.cursor()
-    # 全てのフィードを取得
+    # 全てのフィードを取得（ソート順を逆にする）
     cur.execute(
         """
-        SELECT id, url, title FROM feeds_a1b2c3 WHERE token = %s ORDER BY priority DESC, title ASC
+        SELECT id, url, title FROM feeds_a1b2c3 WHERE token = %s ORDER BY priority ASC, title DESC
         """,
         (token,),
     )
@@ -348,7 +343,7 @@ def load_feeds():
         return jsonify({"error": "Token not found"}), 403
     conn = get_db_connection()
     cur = conn.cursor()
-    # 新しい未読があるフィードだけを表示
+    # 新しい未読があるフィードだけを表示（ソート順を逆にする）
     cur.execute(
         """
         SELECT f.id, f.url, f.title,
@@ -359,7 +354,7 @@ def load_feeds():
             SELECT 1 FROM articles_d4e5f6
             WHERE feed_id = f.id AND is_read = FALSE AND token = f.token AND unlisted = FALSE
         )
-        ORDER BY unread_count DESC
+        ORDER BY unread_count ASC
         """,
         (token,),
     )
