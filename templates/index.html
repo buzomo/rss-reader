@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,13 +14,11 @@
             padding: 0;
             background-color: #f4f4f4;
         }
-
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
-
         .search-bar {
             width: 100%;
             padding: 12px;
@@ -30,7 +27,6 @@
             border: 1px solid #ddd;
             border-radius: 4px;
         }
-
         .section {
             background-color: white;
             border-radius: 5px;
@@ -38,40 +34,33 @@
             margin-bottom: 20px;
             box-shadow: 0 2px 5px transparent;
         }
-
         .article-list {
             list-style: none;
             padding: 0;
             max-height: calc(100vh - 150px);
             overflow-y: auto;
         }
-
         .article-item {
             padding: 12px 10px;
             border-bottom: 1px solid #eee;
             display: flex;
             flex-direction: column;
         }
-
         .article-item:hover {
             background-color: #f9f9f9;
         }
-
         .unread {
             font-weight: bold;
             color: black;
         }
-
         .read {
             color: #999;
         }
-
         .article-header {
             display: flex;
             align-items: flex-start;
             margin-bottom: 8px;
         }
-
         .star-btn {
             margin-right: 10px;
             font-size: 20px;
@@ -81,32 +70,26 @@
             min-width: 30px;
             line-height: 1;
         }
-
         .star-btn.starred {
             color: #ffd700;
         }
-
         .article-title {
             flex-grow: 1;
         }
-
         .article-title a {
             color: inherit;
             text-decoration: none;
             font-size: 16px;
         }
-
         .article-title a:hover {
             text-decoration: underline;
         }
-
         .article-date {
             color: #999;
             font-size: 14px;
             margin-left: 10px;
             white-space: nowrap;
         }
-
         .summary {
             margin-top: 12px;
             font-size: 16px;
@@ -117,17 +100,14 @@
             border-radius: 4px;
             border-left: 4px solid #e0e0e0;
         }
-
         h2 {
             margin-bottom: 10px;
             display: flex;
             align-items: center;
         }
-
         #fileInput {
             display: none;
         }
-
         .read-count-badge {
             background-color: #4CAF50;
             color: white;
@@ -138,7 +118,6 @@
             min-width: 20px;
             text-align: center;
         }
-
         #rightEdgeArea {
             position: fixed;
             top: 0;
@@ -148,7 +127,6 @@
             z-index: 100;
             pointer-events: auto;
         }
-
         #rightEdgeArea .page-up {
             position: absolute;
             top: 0;
@@ -156,7 +134,6 @@
             width: 40px;
             height: 50vh;
         }
-
         #rightEdgeArea .page-down {
             position: absolute;
             top: 50vh;
@@ -164,7 +141,6 @@
             width: 40px;
             height: 50vh;
         }
-
         #bottomEdgeArea {
             position: fixed;
             bottom: 0;
@@ -174,7 +150,6 @@
             z-index: 100;
             pointer-events: auto;
         }
-
         #leftEdgeArea {
             position: fixed;
             top: 0;
@@ -185,7 +160,6 @@
             pointer-events: auto;
             background-color: transparent;
         }
-
         .highlight {
             background-color: pink;
             font-weight: bold;
@@ -194,7 +168,6 @@
         }
     </style>
 </head>
-
 <body>
     <div id="rightEdgeArea">
         <div class="page-up" onclick="scrollPage('up')"></div>
@@ -212,11 +185,12 @@
     <script>
         let currentToken = "{{ token }}";
         let currentSummaryElement = null;
+        let observer = null;
 
         // デバウンス関数
         function debounce(func, wait) {
             let timeout;
-            return function () {
+            return function() {
                 const context = this, args = arguments;
                 clearTimeout(timeout);
                 timeout = setTimeout(() => {
@@ -225,7 +199,7 @@
             };
         }
 
-        // 要素がビュー内にあるか確認
+        // 要素がビュー内にあるか確認（Intersection Observerで置き換え）
         function isElementInViewport(el) {
             const rect = el.getBoundingClientRect();
             return (
@@ -366,10 +340,45 @@
             } else {
                 articleList.innerHTML = '<li>未読記事がありません</li>';
             }
+            setupObservers();
+        }
+
+        // Intersection Observerの設定
+        function setupObservers() {
+            if (observer) {
+                observer.disconnect();
+            }
+            observer = new IntersectionObserver(async (entries) => {
+                const articleIds = [];
+                entries.forEach(entry => {
+                    if (entry.isIntersecting && entry.target.classList.contains('unread')) {
+                        articleIds.push(entry.target.dataset.articleId);
+                    }
+                });
+
+                if (articleIds.length > 0) {
+                    await fetch('/api/mark_multiple_as_read', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ article_ids: articleIds })
+                    });
+                    articleIds.forEach(id => {
+                        const article = document.querySelector(`.article-item[data-article-id="${id}"]`);
+                        if (article) {
+                            article.classList.remove('unread');
+                            article.classList.add('read');
+                        }
+                    });
+                }
+            }, { threshold: 0.5 });
+
+            document.querySelectorAll('#globalArticleList .article-item.unread').forEach(article => {
+                observer.observe(article);
+            });
         }
 
         // 統合検索
-        document.getElementById('globalSearchInput').addEventListener('input', debounce(async function (e) {
+        document.getElementById('globalSearchInput').addEventListener('input', debounce(async function(e) {
             const searchTerm = normalize(e.target.value);
             const response = await fetch(`/api/search_all_articles?query=${encodeURIComponent(searchTerm)}&limit=10`);
             const data = await response.json();
@@ -414,36 +423,8 @@
             } else {
                 articleList.innerHTML = '<li>検索結果がありません</li>';
             }
+            setupObservers();
         }, 500));
-
-        // スクロール時の自動既読化
-        document.getElementById('globalArticleList').addEventListener('scroll', debounce(async function () {
-            const articles = document.querySelectorAll('#globalArticleList .article-item.unread');
-            for (const article of articles) {
-                if (isElementInViewport(article)) {
-                    const articleId = article.dataset.articleId;
-                    await fetch('/api/mark_as_read', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ article_id: articleId })
-                    });
-                    article.classList.remove('unread');
-                    article.classList.add('read');
-                }
-            }
-            // 一番下までスクロールしたら全て既読にする
-            if (this.scrollHeight - this.scrollTop === this.clientHeight) {
-                await fetch('/api/mark_all_as_read', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                const unreadArticles = document.querySelectorAll('#globalArticleList .article-item.unread');
-                unreadArticles.forEach(article => {
-                    article.classList.remove('unread');
-                    article.classList.add('read');
-                });
-            }
-        }, 300));
 
         // OPMLファイルのインポート
         document.addEventListener('contextmenu', function (e) {
@@ -460,6 +441,7 @@
             importOPML(file);
             e.target.value = '';
         });
+
         async function importOPML(file) {
             const reader = new FileReader();
             reader.onload = async function (e) {
@@ -475,6 +457,7 @@
             };
             reader.readAsText(file);
         }
+
         function parseOPML(opmlText) {
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(opmlText, "text/xml");
@@ -491,6 +474,7 @@
             }
             return feeds;
         }
+
         async function subscribeFeeds(feeds) {
             for (const feed of feeds) {
                 try {
@@ -513,5 +497,4 @@
         });
     </script>
 </body>
-
 </html>
