@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,18 +15,21 @@
             padding: 0;
             background-color: #f4f4f4;
         }
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
-            padding-bottom: 80px; /* 下部バナー用のスペース */
+            padding-bottom: 80px;
         }
+
         .search-bar {
             width: 97%;
             padding: 10px;
             margin-bottom: 20px;
             font-size: 16px;
         }
+
         .section {
             background-color: white;
             border-radius: 5px;
@@ -33,31 +37,42 @@
             margin-bottom: 20px;
             box-shadow: 0 2px 5px transparent;
         }
+
         .article-list {
             list-style: none;
             padding: 0;
         }
+
         .article-item {
             padding: 12px 10px;
             border-bottom: 1px solid #eee;
             display: flex;
             flex-direction: column;
         }
+
         .article-item:hover {
             background-color: #f9f9f9;
         }
+
+        .article-item.selected {
+            background-color: #ffebee;
+        }
+
         .unread {
             font-weight: bold;
             color: black;
         }
+
         .read {
             color: #999;
         }
+
         .article-header {
             display: flex;
             align-items: flex-start;
             margin-bottom: 8px;
         }
+
         .star-btn {
             margin-right: 10px;
             font-size: 20px;
@@ -67,26 +82,32 @@
             min-width: 30px;
             line-height: 1;
         }
+
         .star-btn.starred {
             color: #ffd700;
         }
+
         .article-title {
             flex-grow: 1;
         }
+
         .article-title a {
             color: inherit;
             text-decoration: none;
             font-size: 16px;
         }
+
         .article-title a:hover {
             text-decoration: underline;
         }
+
         .article-date {
             color: #999;
             font-size: 14px;
             margin-left: 10px;
             white-space: nowrap;
         }
+
         .summary {
             margin-top: 12px;
             font-size: 16px;
@@ -97,14 +118,17 @@
             border-radius: 4px;
             border-left: 4px solid #e0e0e0;
         }
+
         h2 {
             margin-bottom: 10px;
             display: flex;
             align-items: center;
         }
+
         #fileInput {
             display: none;
         }
+
         #rightEdgeArea {
             position: fixed;
             top: 0;
@@ -114,6 +138,7 @@
             z-index: 100;
             pointer-events: auto;
         }
+
         #rightEdgeArea .page-up {
             position: absolute;
             top: 0;
@@ -121,6 +146,7 @@
             width: 40px;
             height: 50vh;
         }
+
         #rightEdgeArea .page-down {
             position: absolute;
             top: 50vh;
@@ -128,13 +154,14 @@
             width: 40px;
             height: 50vh;
         }
+
         .highlight {
             background-color: pink;
             font-weight: bold;
             padding: 0 2px;
             border-radius: 2px;
         }
-        /* パージボタン */
+
         #purgeButton {
             position: fixed;
             bottom: 80px;
@@ -147,11 +174,11 @@
             border: none;
             font-size: 24px;
             cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
             z-index: 1000;
-            display: none; /* 初期状態では非表示 */
+            display: none;
         }
-        /* 下部バナー */
+
         #bottomBanner {
             position: fixed;
             bottom: 0;
@@ -166,6 +193,7 @@
         }
     </style>
 </head>
+
 <body>
     <div id="rightEdgeArea">
         <div class="page-up" onclick="scrollPage('up')"></div>
@@ -194,6 +222,7 @@
         let articleElements = [];
         let articlesData = [];
         let feedsData = [];
+        let selectedIndex = -1;
 
         document.addEventListener('contextmenu', function (e) {
             e.preventDefault();
@@ -265,7 +294,6 @@
             const data = await response.json();
             feedsData = data.feeds;
             updateRemainingFeeds();
-            // 未読のある最初のフィードをロード
             for (const feed of feedsData) {
                 if (feed.unread_count > 0) {
                     currentFeedId = feed.id;
@@ -279,7 +307,7 @@
 
         function updateRemainingFeeds() {
             const unreadFeeds = feedsData.filter(feed => feed.unread_count > 0);
-            const remainingCount = unreadFeeds.length - 1; // 現在のフィードを除く
+            const remainingCount = unreadFeeds.length - 1;
             document.getElementById('remainingFeeds').textContent = remainingCount > 0 ? ` （残り ${remainingCount} フィード）` : '';
         }
 
@@ -324,6 +352,8 @@
                     articleItem.appendChild(headerDiv);
                     articleItem.onclick = (e) => {
                         if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON') {
+                            selectedIndex = index;
+                            updateSelectedItem();
                             toggleSummary(articleItem, article.id, article.content, article.url, index);
                         }
                     };
@@ -331,11 +361,24 @@
                     articleElements.push(articleItem);
                 });
                 currentArticleIndex = -1;
+                selectedIndex = -1;
             } else {
                 articleList.innerHTML = '<li>記事が見つかりませんでした</li>';
                 articleElements = [];
                 articlesData = [];
+                selectedIndex = -1;
             }
+        }
+
+        function updateSelectedItem() {
+            articleElements.forEach((item, index) => {
+                if (index === selectedIndex) {
+                    item.classList.add('selected');
+                    item.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+                } else {
+                    item.classList.remove('selected');
+                }
+            });
         }
 
         async function toggleSummary(articleItem, articleId, content, url, index) {
@@ -449,13 +492,10 @@
                 body: JSON.stringify({ feed_id: currentFeedId })
             });
             if (purgeResponse.ok) {
-                // 最新のフィードデータを取得
                 const response = await fetch('/api/load_feeds');
                 const data = await response.json();
                 feedsData = data.feeds;
-                // 現在のフィードのインデックスを取得
                 const currentFeedIndex = feedsData.findIndex(feed => feed.id === currentFeedId);
-                // 現在のフィードを既読にしたので、次の未読フィードを探す
                 let nextFeed = null;
                 for (let i = currentFeedIndex + 1; i < feedsData.length; i++) {
                     if (feedsData[i].unread_count > 0) {
@@ -463,7 +503,6 @@
                         break;
                     }
                 }
-                // 見つからなければ先頭から探す
                 if (!nextFeed) {
                     for (let i = 0; i < currentFeedIndex; i++) {
                         if (feedsData[i].unread_count > 0) {
@@ -479,7 +518,6 @@
                     await loadArticles(nextFeed.id);
                     updateRemainingFeeds();
                 } else {
-                    // 未読フィードがなければ、最初のフィードを表示
                     if (feedsData.length > 0) {
                         currentFeedId = feedsData[0].id;
                         document.getElementById('currentFeedTitle').textContent = feedsData[0].title;
@@ -493,9 +531,51 @@
             }
         }
 
+        document.addEventListener('keydown', async (e) => {
+            if (document.activeElement.tagName === 'INPUT') return;
+
+            switch (e.key) {
+                case 'j':
+                    e.preventDefault();
+                    if (articleElements.length > 0) {
+                        selectedIndex = Math.min(selectedIndex + 1, articleElements.length - 1);
+                        updateSelectedItem();
+                    }
+                    break;
+                case 'k':
+                    e.preventDefault();
+                    if (articleElements.length > 0) {
+                        selectedIndex = Math.max(selectedIndex - 1, 0);
+                        updateSelectedItem();
+                    }
+                    break;
+                case 's':
+                    e.prevent認定();
+                    if (selectedIndex >= 0 && selectedIndex < articleElements.length) {
+                        const articleId = articleElements[selectedIndex].dataset.articleId;
+                        const isStarred = articleElements[selectedIndex].dataset.starred === 'true';
+                        const starButton = articleElements[selectedIndex].querySelector('.star-btn');
+                        await toggleStarred(articleId, !isStarred, starButton);
+                    }
+                    break;
+                case 'o':
+                    e.preventDefault();
+                    if (selectedIndex >= 0 && selectedIndex < articleElements.length) {
+                        const url = articlesData[selectedIndex].url;
+                        window.open(url, '_blank');
+                    }
+                    break;
+                case 'a':
+                    e.preventDefault();
+                    await executePurge();
+                    break;
+            }
+        });
+
         document.addEventListener('DOMContentLoaded', () => {
             loadFeeds();
         });
     </script>
 </body>
+
 </html>
