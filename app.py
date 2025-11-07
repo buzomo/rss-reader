@@ -269,6 +269,7 @@ def update_feed():
     return jsonify({"status": "success", "new_articles": new_articles})
 
 
+
 @app.route("/api/feeds_to_poll")
 def feeds_to_poll():
     token = request.cookies.get("token")
@@ -287,10 +288,14 @@ def feeds_to_poll():
         """,
         (token,),
     )
-    feeds = [{"id": row[0], "url": row[1], "title": row[2]} for row in cur.fetchall()]
+    feeds = [
+        {"id": row[0], "url": row[1], "title": row[2]}
+        for row in cur.fetchall()
+    ]
     cur.close()
     conn.close()
     return jsonify({"feeds": feeds})
+
 
 
 @app.route("/api/all_feeds_with_frequency")
