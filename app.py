@@ -271,32 +271,26 @@ def update_feed():
 
 @app.route("/api/feeds_to_poll")
 def feeds_to_poll():
-    try:
-        token = request.cookies.get("token")
-        if not token:
-            return jsonify({"error": "Token not found"}), 403
-        conn = get_db_connection()
-        cur = conn.cursor()
-        # 次回のチェック時間が現在時刻より前のフィードを取得
-        cur.execute(
-            """
-            SELECT id, url, title
-            FROM feeds_a1b2c3
-            WHERE token = %s
-            AND (next_check IS NULL OR next_check <= NOW())
-            ORDER BY priority DESC, update_frequency DESC, title ASC
-            """,
-            (token,),
-        )
-        feeds = [
-            {"id": row[0], "url": row[1], "title": row[2]} for row in cur.fetchall()
-        ]
-        cur.close()
-        conn.close()
-        return jsonify({"feeds": feeds})
-    except Exception as e:
-        print(f"Error in feeds_to_poll: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+    token = request.cookies.get("token")
+    if not token:
+        return jsonify({"error": "Token not found"}), 403
+    conn = get_db_connection()
+    cur = conn.cursor()
+    # 次回のチェック時間が現在時刻より前のフィードを取得
+    cur.execute(
+        """
+        SELECT id, url, title
+        FROM feeds_a1b2c3
+        WHERE token = %s
+        AND (next_check IS NULL OR next_check <= NOW())
+        ORDER BY priority DESC, update_frequency DESC, title ASC
+        """,
+        (token,),
+    )
+    feeds = [{"id": row[0], "url": row[1], "title": row[2]} for row in cur.fetchall()]
+    cur.close()
+    conn.close()
+    return jsonify({"feeds": feeds})
 
 
 @app.route("/api/all_feeds_with_frequency")
@@ -687,80 +681,6 @@ def purge_feed():
     cur.close()
     conn.close()
     return jsonify({"status": "success"})
-
-
-@app.route("/api/search_all_articles")
-def search_all_articles():
-    token = request.cookies.get("token")
-    if not token:
-        return jsonify({"error": "Token not found"}), 403
-    query = request.args.get("query", "")
-    limit = int(request.args.get("limit", 10))
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT a.id, a.title, a.url, a.content, a.published_at, a.is_read, a.starred, f.url as feed_url
-        FROM articles_d4e5f6 a
-        JOIN feeds_a1b2c3 f ON a.feed_id = f.id
-        WHERE a.token = %s AND (a.title ILIKE %s OR a.content ILIKE %s)
-        ORDER BY
-            CASE WHEN a.is_read = FALSE THEN 0 ELSE 1 END,
-            a.published_at DESC
-        LIMIT %s
-        """,
-        (token, f"%{query}%", f"%{query}%", limit),
-    )
-    articles = [
-        {
-            "id": row[0],
-            "title": row[1],
-            "url": row[2],
-            "content": row[3],
-            "published_at": row[4].isoformat() if row[4] else None,
-            "is_read": row[5],
-            "starred": row[6],
-            "feed_url": row[7],
-        }
-        for row in cur.fetchall()
-    ]
-    cur.close()
-    conn.close()
-    return jsonify({"articles": articles})
-
-
-@app.route("/api/load_unread_articles")
-def load_unread_articles():
-    token = request.cookies.get("token")
-    if not token:
-        return jsonify({"error": "Token not found"}), 403
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT a.id, a.title, a.url, a.content, a.published_at, a.starred, f.url as feed_url
-        FROM articles_d4e5f6 a
-        JOIN feeds_a1b2c3 f ON a.feed_id = f.id
-        WHERE a.is_read = FALSE AND a.token = %s
-        ORDER BY a.published_at DESC
-        """,
-        (token,),
-    )
-    articles = [
-        {
-            "id": row[0],
-            "title": row[1],
-            "url": row[2],
-            "content": row[3],
-            "published_at": row[4].isoformat() if row[4] else None,
-            "starred": row[5],
-            "feed_url": row[6],
-        }
-        for row in cur.fetchall()
-    ]
-    cur.close()
-    conn.close()
-    return jsonify({"articles": articles})
 
 
 if __name__ == "__main__":

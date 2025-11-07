@@ -23,12 +23,10 @@
         }
 
         .search-bar {
-            width: 100%;
-            padding: 12px;
+            width: 97%;
+            padding: 10px;
             margin-bottom: 20px;
             font-size: 16px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
         }
 
         .section {
@@ -39,11 +37,22 @@
             box-shadow: 0 2px 5px transparent;
         }
 
+        .feed-list,
         .article-list {
             list-style: none;
             padding: 0;
-            max-height: calc(100vh - 150px);
-            overflow-y: auto;
+        }
+
+        .feed-item {
+            padding: 12px 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .feed-item:hover {
+            background-color: #f9f9f9;
         }
 
         .article-item {
@@ -139,6 +148,10 @@
             text-align: center;
         }
 
+        #starredSection {
+            display: none;
+        }
+
         #rightEdgeArea {
             position: fixed;
             top: 0;
@@ -203,40 +216,35 @@
     <div id="bottomEdgeArea" onclick="backToFeeds()"></div>
     <div id="leftEdgeArea" onclick="executePurge()"></div>
     <div class="container">
-        <div class="section">
-            <input type="text" class="search-bar" id="globalSearchInput" placeholder="記事を検索...">
-            <ul class="article-list" id="globalArticleList"></ul>
+        <div id="starredSection" class="section" style="display: none;">
+            <h2>スターしたアイテム</h2>
+            <input type="text" class="search-bar" id="starredSearchInput" placeholder="スターしたアイテムを検索...">
+            <ul class="article-list" id="starredArticleList"></ul>
+        </div>
+        <div id="feedsSection" class="section">
+            <h2 id="feedHeader">フィード一覧</h2>
+            <input type="text" class="search-bar" id="searchInput" placeholder="フィード名を検索...">
+            <ul class="feed-list" id="feedList"></ul>
+        </div>
+        <div id="articlesSection" class="section" style="display: none;">
+            <h2 id="articleHeader">
+                <span id="backToFeeds"></span>
+                <span id="currentFeedTitle">ニュース一覧</span>
+            </h2>
+            <input type="text" class="search-bar" id="articleSearchInput" placeholder="記事を検索...">
+            <ul class="article-list" id="articleList"></ul>
         </div>
     </div>
     <input type="file" id="fileInput" accept=".opml,.xml" />
     <script>
         let currentToken = "{{ token }}";
+        let currentFeedId = null;
         let currentSummaryElement = null;
+        let currentArticleIndex = -1;
+        let articleElements = [];
+        let articlesData = [];
+        let feedsData = []; // Global variable to store feeds data
 
-        // デバウンス関数
-        function debounce(func, wait) {
-            let timeout;
-            return function () {
-                const context = this, args = arguments;
-                clearTimeout(timeout);
-                timeout = setTimeout(() => {
-                    func.apply(context, args);
-                }, wait);
-            };
-        }
-
-        // 要素がビュー内にあるか確認
-        function isElementInViewport(el) {
-            const rect = el.getBoundingClientRect();
-            return (
-                rect.top >= 0 &&
-                rect.left >= 0 &&
-                rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
-                rect.right <= (window.innerWidth || document.documentElement.clientWidth)
-            );
-        }
-
-        // ホスト名を取得
         function getHostname(url) {
             try {
                 return new URL(url).hostname;
@@ -245,28 +253,171 @@
             }
         }
 
-        // 正規化関数
-        function normalize(s) {
-            return caseConvert(widthConvert(kanaConvert((s || '').trim())));
-        }
-        function caseConvert(s) {
-            return s.toLowerCase();
-        }
-        function widthConvert(s) {
-            return s.replace(/[Ａ-Ｚａ-ｚ０-９]/g, m => String.fromCharCode(m.charCodeAt(0) - 0xFEE0));
-        }
-        function kanaConvert(s) {
-            return s.replace(/[ァ-ヴ]/g, m => String.fromCharCode(m.charCodeAt(0) - 0x60));
+        document.addEventListener('contextmenu', function (e) {
+            e.preventDefault();
+            document.getElementById('fileInput').click();
+        });
+
+        document.getElementById('fileInput').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (!file.name.match(/\.(opml|xml)$/i)) {
+                alert('OPMLファイル (.opml, .xml) を選択してください。');
+                return;
+            }
+            importOPML(file);
+            e.target.value = '';
+        });
+
+        async function importOPML(file) {
+            const reader = new FileReader();
+            reader.onload = async function (e) {
+                const opmlText = e.target.result;
+                const feeds = parseOPML(opmlText);
+                if (feeds.length === 0) {
+                    alert('有効なフィードが見つかりませんでした。');
+                    return;
+                }
+                await subscribeFeeds(feeds);
+                alert(`${feeds.length}件のフィードを購読しました。`);
+                location.reload();
+            };
+            reader.readAsText(file);
         }
 
-        // テキストハイライト
-        function highlightText(text, searchTerm) {
-            if (!searchTerm) return text;
-            const regex = new RegExp(searchTerm, 'gi');
-            return text.replace(regex, match => `<span class="highlight">${match}</span>`);
+        function parseOPML(opmlText) {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(opmlText, "text/xml");
+            const outlines = xmlDoc.getElementsByTagName("outline");
+            const feeds = [];
+            for (let i = 0; i < outlines.length; i++) {
+                const outline = outlines[i];
+                if (outline.hasAttribute("xmlUrl")) {
+                    feeds.push({
+                        title: outline.hasAttribute("title") ? outline.getAttribute("title") : "Untitled Feed",
+                        url: outline.getAttribute("xmlUrl")
+                    });
+                }
+            }
+            return feeds;
         }
 
-        // 記事の要約を表示/非表示
+        async function subscribeFeeds(feeds) {
+            for (const feed of feeds) {
+                try {
+                    await fetch('/api/add_feed', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ url: feed.url })
+                    });
+                } catch (e) {
+                    console.error(`Failed to subscribe ${feed.url}:`, e);
+                }
+            }
+        }
+
+        async function loadFeeds() {
+            const response = await fetch('/api/load_feeds');
+            const data = await response.json();
+            feedsData = data.feeds; // Store the feeds data globally
+            const feedList = document.getElementById('feedList');
+            feedList.innerHTML = '';
+            const starredItem = document.createElement('li');
+            starredItem.className = 'feed-item';
+            starredItem.innerHTML = `
+                <span class="read-count-badge">★</span>
+                <span>スターしたアイテム</span>
+            `;
+            starredItem.onclick = async () => {
+                await loadStarredArticles();
+                document.getElementById('feedsSection').style.display = 'none';
+                document.getElementById('articlesSection').style.display = 'block';
+                document.getElementById('currentFeedTitle').textContent = 'スターしたアイテム';
+            };
+            feedList.appendChild(starredItem);
+            data.feeds.forEach(feed => {
+                const feedItem = document.createElement('li');
+                feedItem.className = 'feed-item';
+                const unreadCount = feed.unread_count || 0;
+                const unreadBadge = document.createElement('span');
+                unreadBadge.className = 'read-count-badge';
+                unreadBadge.textContent = unreadCount;
+                feedItem.appendChild(unreadBadge);
+                const feedTitle = document.createElement('span');
+                feedTitle.textContent = feed.title;
+                feedItem.appendChild(feedTitle);
+                feedItem.onclick = async () => {
+                    currentFeedId = feed.id;
+                    document.getElementById('currentFeedTitle').textContent = feed.title;
+                    await loadArticles(feed.id);
+                    document.getElementById('feedsSection').style.display = 'none';
+                    document.getElementById('articlesSection').style.display = 'block';
+                };
+                feedList.appendChild(feedItem);
+            });
+        }
+
+        async function loadArticles(feedId) {
+            const response = await fetch(`/api/load_articles?feed_id=${feedId}`);
+            const data = await response.json();
+            const articleList = document.getElementById('articleList');
+            articleList.innerHTML = '';
+            articleElements = [];
+            articlesData = data.articles || [];
+            if (articlesData.length > 0) {
+                articlesData.forEach((article, index) => {
+                    const articleItem = document.createElement('li');
+                    articleItem.className = `article-item ${article.is_read ? 'read' : 'unread'}`;
+                    articleItem.dataset.index = index;
+                    articleItem.dataset.articleId = article.id;
+                    articleItem.dataset.starred = article.starred;
+                    const headerDiv = document.createElement('div');
+                    headerDiv.className = 'article-header';
+                    const starButton = document.createElement('button');
+                    starButton.className = `star-btn ${article.starred ? 'starred' : ''}`;
+                    starButton.innerHTML = article.starred ? '★' : '☆';
+                    starButton.onclick = async (e) => {
+                        e.stopPropagation();
+                        const newStarred = !article.starred;
+                        await toggleStarred(article.id, newStarred, starButton);
+                        const feedHost = getHostname(article.feed_url);
+                        const articleHost = getHostname(article.url);
+                        if (feedHost && articleHost && feedHost !== articleHost && newStarred) {
+                            await subscribeFeed(article.url);
+                        }
+                    };
+                    const titleDiv = document.createElement('div');
+                    titleDiv.className = 'article-title';
+                    const titleLink = document.createElement('a');
+                    titleLink.href = article.url;
+                    titleLink.target = '_blank';
+                    titleLink.textContent = article.title;
+                    const dateSpan = document.createElement('span');
+                    dateSpan.className = 'article-date';
+                    dateSpan.textContent = article.published_at ? new Date(article.published_at).toLocaleString() : '';
+                    titleDiv.appendChild(titleLink);
+                    headerDiv.appendChild(starButton);
+                    headerDiv.appendChild(titleDiv);
+                    headerDiv.appendChild(dateSpan);
+                    articleItem.appendChild(headerDiv);
+                    articleItem.onclick = (e) => {
+                        if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON') {
+                            toggleSummary(articleItem, article.id, article.content, article.url, index);
+                        }
+                    };
+                    articleList.appendChild(articleItem);
+                    articleElements.push(articleItem);
+                });
+                currentArticleIndex = -1;
+            } else {
+                articleList.innerHTML = '<li>記事が見つかりませんでした</li>';
+                articleElements = [];
+                articlesData = [];
+            }
+        }
+
         async function toggleSummary(articleItem, articleId, content, url, index) {
             let summary = articleItem.querySelector('.summary');
             if (summary && currentSummaryElement === summary) {
@@ -287,6 +438,7 @@
             summaryDiv.innerHTML = `<br><br>${fullContent}`;
             articleItem.appendChild(summaryDiv);
             currentSummaryElement = summaryDiv;
+            currentArticleIndex = index;
             await fetch('/api/mark_as_read', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -295,7 +447,6 @@
             articleItem.scrollIntoView({ behavior: 'auto', block: 'start' });
         }
 
-        // スターのトグル
         async function toggleStarred(articleId, starred, button) {
             const response = await fetch('/api/toggle_starred', {
                 method: 'POST',
@@ -305,6 +456,9 @@
             if (response.ok) {
                 button.className = `star-btn ${starred ? 'starred' : ''}`;
                 button.innerHTML = starred ? '★' : '☆';
+                if (articleElements[currentArticleIndex]) {
+                    articleElements[currentArticleIndex].dataset.starred = starred;
+                }
                 await fetch('/api/mark_as_read', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -313,7 +467,66 @@
             }
         }
 
-        // スクロール
+        async function subscribeFeed(articleUrl) {
+            await fetch('/api/subscribe_feed', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: articleUrl })
+            });
+        }
+
+        async function loadStarredArticles() {
+            currentFeedId = null;
+            const response = await fetch('/api/load_starred_articles');
+            const data = await response.json();
+            const articleList = document.getElementById('articleList');
+            articleList.innerHTML = '';
+            articleElements = [];
+            articlesData = data.articles || [];
+            if (articlesData.length > 0) {
+                articlesData.forEach((article, index) => {
+                    const articleItem = document.createElement('li');
+                    articleItem.className = 'article-item starred';
+                    articleItem.dataset.index = index;
+                    articleItem.dataset.articleId = article.id;
+                    articleItem.dataset.starred = 'true';
+                    const headerDiv = document.createElement('div');
+                    headerDiv.className = 'article-header';
+                    const starButton = document.createElement('button');
+                    starButton.className = 'star-btn starred';
+                    starButton.innerHTML = '★';
+                    starButton.onclick = async (e) => {
+                        e.stopPropagation();
+                        const newStarred = false;
+                        await toggleStarred(article.id, newStarred, starButton);
+                    };
+                    const titleDiv = document.createElement('div');
+                    titleDiv.className = 'article-title';
+                    const titleLink = document.createElement('a');
+                    titleLink.href = article.url;
+                    titleLink.target = '_blank';
+                    titleLink.textContent = article.title;
+                    const dateSpan = document.createElement('span');
+                    dateSpan.className = 'article-date';
+                    dateSpan.textContent = article.published_at ? new Date(article.published_at).toLocaleString() : '';
+                    titleDiv.appendChild(titleLink);
+                    headerDiv.appendChild(starButton);
+                    headerDiv.appendChild(titleDiv);
+                    headerDiv.appendChild(dateSpan);
+                    articleItem.appendChild(headerDiv);
+                    articleItem.onclick = (e) => {
+                        if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON') {
+                            toggleSummary(articleItem, article.id, article.content, article.url, index);
+                        }
+                    };
+                    articleList.appendChild(articleItem);
+                    articleElements.push(articleItem);
+                });
+            } else {
+                articleList.innerHTML = '<li>スターしたアイテムがありません</li>';
+            }
+        }
+
         function scrollPage(direction) {
             window.scrollBy({
                 top: direction === 'up' ? -window.innerHeight + 100 : window.innerHeight - 100,
@@ -321,195 +534,157 @@
             });
         }
 
-        // 未読記事を読み込む
-        async function loadInitialArticles() {
-            const response = await fetch('/api/load_unread_articles');
-            const data = await response.json();
-            const articleList = document.getElementById('globalArticleList');
-            articleList.innerHTML = '';
-            if (data.articles && data.articles.length > 0) {
-                data.articles.forEach((article, index) => {
-                    const articleItem = document.createElement('li');
-                    articleItem.className = 'article-item unread';
-                    articleItem.dataset.articleId = article.id;
-                    const headerDiv = document.createElement('div');
-                    headerDiv.className = 'article-header';
-                    const starButton = document.createElement('button');
-                    starButton.className = `star-btn ${article.starred ? 'starred' : ''}`;
-                    starButton.innerHTML = article.starred ? '★' : '☆';
-                    starButton.onclick = async (e) => {
-                        e.stopPropagation();
-                        const newStarred = !article.starred;
-                        await toggleStarred(article.id, newStarred, starButton);
-                    };
-                    const titleDiv = document.createElement('div');
-                    titleDiv.className = 'article-title';
-                    const titleLink = document.createElement('a');
-                    titleLink.href = article.url;
-                    titleLink.target = '_blank';
-                    titleLink.textContent = article.title;
-                    const dateSpan = document.createElement('span');
-                    dateSpan.className = 'article-date';
-                    dateSpan.textContent = article.published_at ? new Date(article.published_at).toLocaleString() : '';
-                    titleDiv.appendChild(titleLink);
-                    headerDiv.appendChild(starButton);
-                    headerDiv.appendChild(titleDiv);
-                    headerDiv.appendChild(dateSpan);
-                    articleItem.appendChild(headerDiv);
-                    articleItem.onclick = (e) => {
-                        if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON') {
-                            toggleSummary(articleItem, article.id, article.content, article.url, index);
-                        }
-                    };
-                    articleList.appendChild(articleItem);
-                });
-            } else {
-                articleList.innerHTML = '<li>未読記事がありません</li>';
-            }
+        function backToFeeds() {
+            document.getElementById('feedsSection').style.display = 'block';
+            document.getElementById('articlesSection').style.display = 'none';
+            currentArticleIndex = -1;
+            loadFeeds();
         }
 
-        // 統合検索
-        document.getElementById('globalSearchInput').addEventListener('input', debounce(async function (e) {
+        function normalize(s) {
+            return caseConvert(widthConvert(kanaConvert((s || '').trim())));
+        }
+
+        function caseConvert(s) {
+            return s.toLowerCase();
+        }
+
+        function widthConvert(s) {
+            return s.replace(/[Ａ-Ｚａ-ｚ０-９]/g, m => String.fromCharCode(m.charCodeAt(0) - 0xFEE0));
+        }
+
+        function kanaConvert(s) {
+            return s.replace(/[ァ-ヴ]/g, m => String.fromCharCode(m.charCodeAt(0) - 0x60));
+        }
+
+        document.getElementById('searchInput').addEventListener('input', function (e) {
             const searchTerm = normalize(e.target.value);
-            const response = await fetch(`/api/search_all_articles?query=${encodeURIComponent(searchTerm)}&limit=10`);
-            const data = await response.json();
-            const articleList = document.getElementById('globalArticleList');
-            articleList.innerHTML = '';
-            if (data.articles && data.articles.length > 0) {
-                data.articles.forEach((article, index) => {
-                    const articleItem = document.createElement('li');
-                    articleItem.className = `article-item ${article.is_read ? 'read' : 'unread'}`;
-                    articleItem.dataset.articleId = article.id;
-                    const headerDiv = document.createElement('div');
-                    headerDiv.className = 'article-header';
-                    const starButton = document.createElement('button');
-                    starButton.className = `star-btn ${article.starred ? 'starred' : ''}`;
-                    starButton.innerHTML = article.starred ? '★' : '☆';
-                    starButton.onclick = async (e) => {
-                        e.stopPropagation();
-                        const newStarred = !article.starred;
-                        await toggleStarred(article.id, newStarred, starButton);
-                    };
-                    const titleDiv = document.createElement('div');
-                    titleDiv.className = 'article-title';
-                    const titleLink = document.createElement('a');
-                    titleLink.href = article.url;
-                    titleLink.target = '_blank';
-                    titleLink.textContent = article.title;
-                    const dateSpan = document.createElement('span');
-                    dateSpan.className = 'article-date';
-                    dateSpan.textContent = article.published_at ? new Date(article.published_at).toLocaleString() : '';
-                    titleDiv.appendChild(titleLink);
-                    headerDiv.appendChild(starButton);
-                    headerDiv.appendChild(titleDiv);
-                    headerDiv.appendChild(dateSpan);
-                    articleItem.appendChild(headerDiv);
-                    articleItem.onclick = (e) => {
-                        if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON') {
-                            toggleSummary(articleItem, article.id, article.content, article.url, index);
-                        }
-                    };
-                    articleList.appendChild(articleItem);
-                });
-            } else {
-                articleList.innerHTML = '<li>検索結果がありません</li>';
-            }
-        }, 500));
-
-        // スクロール時の自動既読化
-        document.getElementById('globalArticleList').addEventListener('scroll', debounce(async function () {
-            const articles = document.querySelectorAll('#globalArticleList .article-item.unread');
-            for (const article of articles) {
-                if (isElementInViewport(article)) {
-                    const articleId = article.dataset.articleId;
-                    await fetch('/api/mark_as_read', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ article_id: articleId })
-                    });
-                    article.classList.remove('unread');
-                    article.classList.add('read');
+            const feedItems = document.querySelectorAll('.feed-item');
+            feedItems.forEach(item => {
+                const feedTitle = normalize(item.querySelector('span:last-child').textContent);
+                const originalTitle = item.querySelector('span:last-child').textContent;
+                if (feedTitle.includes(searchTerm)) {
+                    item.style.display = '';
+                    const highlightedTitle = highlightText(originalTitle, searchTerm);
+                    item.querySelector('span:last-child').innerHTML = highlightedTitle;
+                } else {
+                    item.style.display = 'none';
                 }
-            }
-            // 一番下までスクロールしたら全て既読にする
-            if (this.scrollHeight - this.scrollTop === this.clientHeight) {
-                await fetch('/api/mark_all_as_read', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                const unreadArticles = document.querySelectorAll('#globalArticleList .article-item.unread');
-                unreadArticles.forEach(article => {
-                    article.classList.remove('unread');
-                    article.classList.add('read');
-                });
-            }
-        }, 300));
-
-        // OPMLファイルのインポート
-        document.addEventListener('contextmenu', function (e) {
-            e.preventDefault();
-            document.getElementById('fileInput').click();
+            });
         });
-        document.getElementById('fileInput').addEventListener('change', function (e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            if (!file.name.match(/\.(opml|xml)$/i)) {
-                alert('OPMLファイル (.opml, .xml) を選択してください。');
+
+        document.getElementById('articleSearchInput').addEventListener('input', function (e) {
+            const searchTerm = normalize(e.target.value);
+            const articleItems = document.querySelectorAll('.article-item');
+            articleItems.forEach(item => {
+                const titleElement = item.querySelector('.article-title a');
+                const title = normalize(titleElement.textContent);
+                const summaryElement = item.querySelector('.summary');
+                const summaryText = summaryElement ? normalize(summaryElement.textContent) : '';
+                if (title.includes(searchTerm) || summaryText.includes(searchTerm)) {
+                    item.style.display = '';
+                    const originalTitle = titleElement.textContent;
+                    titleElement.innerHTML = highlightText(originalTitle, searchTerm);
+                    if (summaryElement) {
+                        const originalSummary = summaryElement.textContent;
+                        summaryElement.innerHTML = highlightText(originalSummary, searchTerm);
+                    }
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+
+        document.getElementById('starredSearchInput').addEventListener('input', function (e) {
+            const searchTerm = normalize(e.target.value);
+            const articleItems = document.querySelectorAll('#starredArticleList .article-item');
+            articleItems.forEach(item => {
+                const titleElement = item.querySelector('.article-title a');
+                const title = normalize(titleElement.textContent);
+                const summaryElement = item.querySelector('.summary');
+                const summaryText = summaryElement ? normalize(summaryElement.textContent) : '';
+                if (title.includes(searchTerm) || summaryText.includes(searchTerm)) {
+                    item.style.display = '';
+                    const originalTitle = titleElement.textContent;
+                    titleElement.innerHTML = highlightText(originalTitle, searchTerm);
+                    if (summaryElement) {
+                        const originalSummary = summaryElement.textContent;
+                        summaryElement.innerHTML = highlightText(originalSummary, searchTerm);
+                    }
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+
+        function highlightText(text, searchTerm) {
+            if (!searchTerm) return text;
+            const regex = new RegExp(searchTerm, 'gi');
+            return text.replace(regex, match => `<span class="highlight">${match}</span>`);
+        }
+
+        async function executePurge() {
+            if (!currentFeedId) {
+                alert('フィードが選択されていません。');
                 return;
             }
-            importOPML(file);
-            e.target.value = '';
-        });
-        async function importOPML(file) {
-            const reader = new FileReader();
-            reader.onload = async function (e) {
-                const opmlText = e.target.result;
-                const feeds = parseOPML(opmlText);
-                if (feeds.length === 0) {
-                    alert('有効なフィードが見つかりませんでした。');
-                    return;
+            const purgeResponse = await fetch('/api/purge_feed', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ feed_id: currentFeedId })
+            });
+            if (purgeResponse.ok) {
+                // Fetch the latest feed data
+                const response = await fetch('/api/load_feeds');
+                const data = await response.json();
+                feedsData = data.feeds;
+                // Find the index of the current feed
+                const currentFeedIndex = feedsData.findIndex(feed => feed.id === currentFeedId);
+                // Find the next unread feed after the current one
+                let nextFeed = null;
+                for (let i = currentFeedIndex + 1; i < feedsData.length; i++) {
+                    if (feedsData[i].unread_count > 0) {
+                        nextFeed = feedsData[i];
+                        break;
+                    }
                 }
-                await subscribeFeeds(feeds);
-                alert(`${feeds.length}件のフィードを購読しました。`);
-                location.reload();
-            };
-            reader.readAsText(file);
-        }
-        function parseOPML(opmlText) {
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(opmlText, "text/xml");
-            const outlines = xmlDoc.getElementsByTagName("outline");
-            const feeds = [];
-            for (let i = 0; i < outlines.length; i++) {
-                const outline = outlines[i];
-                if (outline.hasAttribute("xmlUrl")) {
-                    feeds.push({
-                        title: outline.hasAttribute("title") ? outline.getAttribute("title") : "Untitled Feed",
-                        url: outline.getAttribute("xmlUrl")
-                    });
+                // If not found, look from the start of the list
+                if (!nextFeed) {
+                    for (let i = 0; i < currentFeedIndex; i++) {
+                        if (feedsData[i].unread_count > 0) {
+                            nextFeed = feedsData[i];
+                            break;
+                        }
+                    }
                 }
-            }
-            return feeds;
-        }
-        async function subscribeFeeds(feeds) {
-            for (const feed of feeds) {
-                try {
-                    await fetch('/api/add_feed', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ url: feed.url })
-                    });
-                } catch (e) {
-                    console.error(`Failed to subscribe ${feed.url}:`, e);
+                if (nextFeed) {
+                    currentFeedId = nextFeed.id;
+                    document.getElementById('currentFeedTitle').textContent = nextFeed.title;
+                    await loadArticles(nextFeed.id);
+                } else {
+                    // If no unread feeds are found, go back to the feed list
+                    backToFeeds();
                 }
+            } else {
+                alert('Purgeに失敗しました。');
             }
         }
 
-        // 初期読み込み
+        async function markAllStarredAsRead() {
+            const response = await fetch('/api/mark_starred_as_read', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            });
+            if (response.ok) {
+                console.log("スターした記事を全て既読にしました。");
+            } else {
+                console.error("既読更新に失敗しました。");
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
-            loadInitialArticles();
+            loadFeeds();
+            markAllStarredAsRead();
         });
     </script>
 </body>
