@@ -308,14 +308,79 @@
             const data = await response.json();
             feedsData = data.feeds;
             updateRemainingFeedsIndicator();
+
+            // 未読記事のあるフィードを探す
+            let hasUnread = false;
             for (const feed of feedsData) {
                 if (feed.unread_count > 0) {
                     currentFeedId = feed.id;
                     document.getElementById('currentFeedTitle').textContent = feed.title;
                     document.getElementById('currentFeedName').textContent = feed.title;
                     await loadArticles(feed.id);
+                    hasUnread = true;
                     break;
                 }
+            }
+
+            // 未読記事のあるフィードが見つからない場合
+            if (!hasUnread) {
+                document.getElementById('allRead').style.display = 'block';
+                document.getElementById('purgeButton').style.display = 'none';
+            }
+        }
+
+        async function executePurge() {
+            if (!currentFeedId) {
+                console.log('フィードが選択されていません。');
+                return;
+            }
+
+            const purgeResponse = await fetch('/api/purge_feed', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ feed_id: currentFeedId })
+            });
+
+            if (purgeResponse.ok) {
+                const response = await fetch('/api/load_feeds');
+                const data = await response.json();
+                feedsData = data.feeds;
+                updateRemainingFeedsIndicator();
+
+                // 未読記事のある次のフィードを探す
+                let nextFeed = null;
+                const currentFeedIndex = feedsData.findIndex(feed => feed.id === currentFeedId);
+                for (let i = currentFeedIndex + 1; i < feedsData.length; i++) {
+                    if (feedsData[i].unread_count > 0) {
+                        nextFeed = feedsData[i];
+                        break;
+                    }
+                }
+
+                // 次のフィードが見つからない場合、先頭から探す
+                if (!nextFeed) {
+                    for (let i = 0; i < currentFeedIndex; i++) {
+                        if (feedsData[i].unread_count > 0) {
+                            nextFeed = feedsData[i];
+                            break;
+                        }
+                    }
+                }
+
+                // 未読記事のあるフィードが見つかった場合
+                if (nextFeed) {
+                    currentFeedId = nextFeed.id;
+                    document.getElementById('currentFeedTitle').textContent = nextFeed.title;
+                    document.getElementById('currentFeedName').textContent = nextFeed.title;
+                    await loadArticles(nextFeed.id);
+                }
+                // 未読記事のあるフィードが見つからない場合
+                else {
+                    document.getElementById('allRead').style.display = 'block';
+                    document.getElementById('purgeButton').style.display = 'none';
+                }
+            } else {
+                console.log('パージに失敗しました。');
             }
         }
 
@@ -472,57 +537,7 @@
                 behavior: 'auto'
             });
         }
-
-        async function executePurge() {
-            if (!currentFeedId) {
-                console.log('フィードが選択されていません。');
-                return;
-            }
-            const purgeResponse = await fetch('/api/purge_feed', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ feed_id: currentFeedId })
-            });
-            if (purgeResponse.ok) {
-                const response = await fetch('/api/load_feeds');
-                const data = await response.json();
-                feedsData = data.feeds;
-                const currentFeedIndex = feedsData.findIndex(feed => feed.id === currentFeedId);
-                let nextFeed = null;
-                for (let i = currentFeedIndex + 1; i < feedsData.length; i++) {
-                    if (feedsData[i].unread_count > 0) {
-                        nextFeed = feedsData[i];
-                        break;
-                    }
-                }
-                if (!nextFeed) {
-                    for (let i = 0; i < currentFeedIndex; i++) {
-                        if (feedsData[i].unread_count > 0) {
-                            nextFeed = feedsData[i];
-                            break;
-                        }
-                    }
-                }
-                if (nextFeed) {
-                    currentFeedId = nextFeed.id;
-                    document.getElementById('currentFeedTitle').textContent = nextFeed.title;
-                    document.getElementById('currentFeedName').textContent = nextFeed.title;
-                    await loadArticles(nextFeed.id);
-                    updateRemainingFeedsIndicator();
-                } else {
-                    if (feedsData.length > 0) {
-                        currentFeedId = feedsData[0].id;
-                        document.getElementById('currentFeedTitle').textContent = feedsData[0].title;
-                        document.getElementById('currentFeedName').textContent = feedsData[0].title;
-                        await loadArticles(feedsData[0].id);
-                        updateRemainingFeedsIndicator();
-                    }
-                }
-            } else {
-                console.log('パージに失敗しました。');
-            }
-        }
-
+        
         document.addEventListener('keydown', async (e) => {
             if (document.activeElement.tagName === 'INPUT') return;
             switch (e.key) {
