@@ -132,12 +132,11 @@
             width: 60px;
             height: 60px;
             border-radius: 50%;
-            background-color: #ff4444;
+            background-color: #d0d0d0;
             color: white;
             border: none;
             font-size: 24px;
             cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
             z-index: 1000;
             display: none;
         }
@@ -169,11 +168,10 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background-color: rgba(0, 0, 0, 0.7);
-            color: white;
+            color: #6daea733;
             padding: 10px 20px;
             border-radius: 10px;
-            font-size: 18px;
+            font-size: 300px;
             z-index: 1000;
             display: none;
         }
@@ -184,7 +182,7 @@
         <div class="page-up" onclick="scrollPage('up')"></div>
         <div class="page-down" onclick="scrollPage('down')"></div>
     </div>
-    <button id="purgeButton" onclick="executePurge()">🗑️</button>
+    <button id="purgeButton" onclick="executePurge()">次</button>
     <div id="bottomBanner">
         <span id="currentFeedName">ニュース一覧</span>
     </div>
@@ -298,7 +296,7 @@
             const remainingCount = unreadFeeds.length;
             const indicator = document.getElementById('remainingFeedsIndicator');
             if (remainingCount > 0) {
-                indicator.textContent = `残り ${remainingCount} フィード`;
+                indicator.textContent = remainingCount;
                 indicator.style.display = 'block';
             } else {
                 indicator.style.display = 'none';
