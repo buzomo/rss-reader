@@ -18,6 +18,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 
 load_dotenv()
+
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
 
@@ -116,10 +117,15 @@ def extract_feed_url_from_html(html_url):
 
 @app.route("/")
 def index():
-    token = request.args.get("token") or request.cookies.get("token")
+    token = request.args.get("token")
+    if not token:
+        token = request.cookies.get("token")
     if not token:
         token = generate_token()
-        return redirect(url_for("index", token=token))
+        resp = make_response(redirect(url_for("index", token=token)))
+        resp.set_cookie("token", token)
+        return resp
+
     feed_url = request.args.get("feed_url")
     if feed_url:
         feed = feedparser.parse(feed_url)
@@ -143,6 +149,7 @@ def index():
             conn.commit()
         cur.close()
         conn.close()
+
     resp = make_response(render_template("index.html", token=token))
     resp.set_cookie("token", token)
     return resp
@@ -457,7 +464,6 @@ def load_articles():
         print(f"Unexpected error: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-
 @app.route("/api/fetch_full_content", methods=["POST"])
 def api_fetch_full_content():
     token = request.cookies.get("token")
@@ -664,3 +670,8 @@ def purge_feed():
     conn.close()
     return jsonify({"status": "success"})
 
+with app.app_context():
+    init_db()
+
+if __name__ == "__main__":
+    app.run(debug=True)
