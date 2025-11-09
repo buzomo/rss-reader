@@ -650,10 +650,11 @@ def purge_feed():
         return jsonify({"error": "Feed ID is required"}), 400
     conn = get_db_connection()
     cur = conn.cursor()
-    # スター以外の記事を削除
+    # スター以外の記事を既読にする
     cur.execute(
         """
-        DELETE FROM articles_d4e5f6
+        UPDATE articles_d4e5f6
+        SET is_read = TRUE
         WHERE feed_id = %s AND token = %s AND starred = FALSE
         """,
         (feed_id, token),
@@ -663,7 +664,3 @@ def purge_feed():
     conn.close()
     return jsonify({"status": "success"})
 
-if __name__ == "__main__":
-    with app.app_context():
-        init_db()
-    app.run(debug=True)
