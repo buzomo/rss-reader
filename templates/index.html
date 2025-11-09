@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,12 +15,14 @@
             padding: 0;
             background-color: #f4f4f4;
         }
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
             padding-bottom: 80px;
         }
+
         .section {
             background-color: white;
             border-radius: 5px;
@@ -27,34 +30,42 @@
             margin-bottom: 20px;
             box-shadow: 0 2px 5px transparent;
         }
+
         .article-list {
             list-style: none;
             padding: 0;
         }
+
         .article-item {
             padding: 12px 10px;
             border-bottom: 1px solid #eee;
             display: flex;
             flex-direction: column;
         }
+
         .article-item:hover {
             background-color: #f9f9f9;
         }
+
         .article-item.selected {
             background-color: #ffebee;
         }
+
         .unread {
             font-weight: bold;
             color: black;
         }
+
         .read {
             color: #999;
         }
+
         .article-header {
             display: flex;
             align-items: flex-start;
             margin-bottom: 8px;
         }
+
         .star-btn {
             margin-right: 10px;
             font-size: 20px;
@@ -64,26 +75,32 @@
             min-width: 30px;
             line-height: 1;
         }
+
         .star-btn.starred {
             color: #ffd700;
         }
+
         .article-title {
             flex-grow: 1;
         }
+
         .article-title a {
             color: inherit;
             text-decoration: none;
             font-size: 16px;
         }
+
         .article-title a:hover {
             text-decoration: underline;
         }
+
         .article-date {
             color: #999;
             font-size: 14px;
             margin-left: 10px;
             white-space: nowrap;
         }
+
         .summary {
             margin-top: 12px;
             font-size: 16px;
@@ -94,14 +111,17 @@
             border-radius: 4px;
             border-left: 4px solid #e0e0e0;
         }
+
         h2 {
             margin-bottom: 10px;
             display: flex;
             align-items: center;
         }
+
         #fileInput {
             display: none;
         }
+
         #rightEdgeArea {
             position: fixed;
             top: 0;
@@ -111,6 +131,7 @@
             z-index: 100;
             pointer-events: auto;
         }
+
         #rightEdgeArea .page-up {
             position: absolute;
             top: 0;
@@ -118,6 +139,7 @@
             width: 40px;
             height: 50vh;
         }
+
         #rightEdgeArea .page-down {
             position: absolute;
             top: 50vh;
@@ -125,6 +147,7 @@
             width: 40px;
             height: 50vh;
         }
+
         #purgeButton {
             position: fixed;
             bottom: 80px;
@@ -140,6 +163,7 @@
             z-index: 1000;
             display: none;
         }
+
         #bottomBanner {
             position: fixed;
             bottom: 0;
@@ -152,6 +176,7 @@
             font-size: 14px;
             z-index: 999;
         }
+
         #allRead {
             display: none;
             text-align: center;
@@ -159,10 +184,12 @@
             font-size: 24px;
             font-weight: bold;
         }
+
         #allRead img {
             margin-top: 20px;
             max-width: 300px;
         }
+
         #remainingFeedsIndicator {
             position: fixed;
             top: 50%;
@@ -177,6 +204,7 @@
         }
     </style>
 </head>
+
 <body>
     <div id="rightEdgeArea">
         <div class="page-up" onclick="scrollPage('up')"></div>
@@ -403,7 +431,6 @@
             });
             articleItem.scrollIntoView({ behavior: 'auto', block: 'start' });
         }
-
         async function toggleStarred(articleId, starred, button) {
             const response = await fetch('/api/toggle_starred', {
                 method: 'POST',
@@ -417,6 +444,11 @@
                     articleElements[currentArticleIndex].dataset.starred = starred;
                 }
                 if (starred) {
+                    // スターが付けられた場合、記事を削除
+                    if (currentSummaryElement) {
+                        currentSummaryElement.remove();
+                        currentSummaryElement = null;
+                    }
                     articleElements[currentArticleIndex].remove();
                     articleElements.splice(currentArticleIndex, 1);
                     articlesData.splice(currentArticleIndex, 1);
@@ -432,6 +464,7 @@
                 });
             }
         }
+
 
         function scrollPage(direction) {
             window.scrollBy({
@@ -535,4 +568,5 @@
         });
     </script>
 </body>
+
 </html>
