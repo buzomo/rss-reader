@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,21 +14,12 @@
             padding: 0;
             background-color: #f4f4f4;
         }
-
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
             padding-bottom: 80px;
         }
-
-        .search-bar {
-            width: 97%;
-            padding: 10px;
-            margin-bottom: 20px;
-            font-size: 16px;
-        }
-
         .section {
             background-color: white;
             border-radius: 5px;
@@ -37,42 +27,34 @@
             margin-bottom: 20px;
             box-shadow: 0 2px 5px transparent;
         }
-
         .article-list {
             list-style: none;
             padding: 0;
         }
-
         .article-item {
             padding: 12px 10px;
             border-bottom: 1px solid #eee;
             display: flex;
             flex-direction: column;
         }
-
         .article-item:hover {
             background-color: #f9f9f9;
         }
-
         .article-item.selected {
             background-color: #ffebee;
         }
-
         .unread {
             font-weight: bold;
             color: black;
         }
-
         .read {
             color: #999;
         }
-
         .article-header {
             display: flex;
             align-items: flex-start;
             margin-bottom: 8px;
         }
-
         .star-btn {
             margin-right: 10px;
             font-size: 20px;
@@ -82,32 +64,26 @@
             min-width: 30px;
             line-height: 1;
         }
-
         .star-btn.starred {
             color: #ffd700;
         }
-
         .article-title {
             flex-grow: 1;
         }
-
         .article-title a {
             color: inherit;
             text-decoration: none;
             font-size: 16px;
         }
-
         .article-title a:hover {
             text-decoration: underline;
         }
-
         .article-date {
             color: #999;
             font-size: 14px;
             margin-left: 10px;
             white-space: nowrap;
         }
-
         .summary {
             margin-top: 12px;
             font-size: 16px;
@@ -118,17 +94,14 @@
             border-radius: 4px;
             border-left: 4px solid #e0e0e0;
         }
-
         h2 {
             margin-bottom: 10px;
             display: flex;
             align-items: center;
         }
-
         #fileInput {
             display: none;
         }
-
         #rightEdgeArea {
             position: fixed;
             top: 0;
@@ -138,7 +111,6 @@
             z-index: 100;
             pointer-events: auto;
         }
-
         #rightEdgeArea .page-up {
             position: absolute;
             top: 0;
@@ -146,7 +118,6 @@
             width: 40px;
             height: 50vh;
         }
-
         #rightEdgeArea .page-down {
             position: absolute;
             top: 50vh;
@@ -154,14 +125,6 @@
             width: 40px;
             height: 50vh;
         }
-
-        .highlight {
-            background-color: pink;
-            font-weight: bold;
-            padding: 0 2px;
-            border-radius: 2px;
-        }
-
         #purgeButton {
             position: fixed;
             bottom: 80px;
@@ -178,7 +141,6 @@
             z-index: 1000;
             display: none;
         }
-
         #bottomBanner {
             position: fixed;
             bottom: 0;
@@ -191,9 +153,31 @@
             font-size: 14px;
             z-index: 999;
         }
+        #progressBar {
+            height: 10px;
+            background-color: #ddd;
+            border-radius: 5px;
+            margin-top: 5px;
+        }
+        #progress {
+            height: 100%;
+            background-color: #4CAF50;
+            border-radius: 5px;
+            width: 0%;
+        }
+        #allRead {
+            display: none;
+            text-align: center;
+            margin-top: 100px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        #allRead img {
+            margin-top: 20px;
+            max-width: 300px;
+        }
     </style>
 </head>
-
 <body>
     <div id="rightEdgeArea">
         <div class="page-up" onclick="scrollPage('up')"></div>
@@ -202,15 +186,18 @@
     <button id="purgeButton" onclick="executePurge()">🗑️</button>
     <div id="bottomBanner">
         <span id="currentFeedName">ニュース一覧</span>
-        <span id="remainingFeeds"></span>
+        <div id="progressBar"><div id="progress"></div></div>
     </div>
     <div class="container">
         <div id="articlesSection" class="section">
             <h2 id="articleHeader">
                 <span id="currentFeedTitle">ニュース一覧</span>
             </h2>
-            <input type="text" class="search-bar" id="articleSearchInput" placeholder="記事を検索...">
             <ul class="article-list" id="articleList"></ul>
+        </div>
+        <div id="allRead">
+            All Read!<br>
+            <img src="https://cataas.com/cat" alt="cat">
         </div>
     </div>
     <input type="file" id="fileInput" accept=".opml,.xml" />
@@ -293,7 +280,7 @@
             const response = await fetch('/api/load_feeds');
             const data = await response.json();
             feedsData = data.feeds;
-            updateRemainingFeeds();
+            updateProgressBar();
             for (const feed of feedsData) {
                 if (feed.unread_count > 0) {
                     currentFeedId = feed.id;
@@ -305,21 +292,25 @@
             }
         }
 
-        function updateRemainingFeeds() {
+        function updateProgressBar() {
             const unreadFeeds = feedsData.filter(feed => feed.unread_count > 0);
-            const remainingCount = unreadFeeds.length - 1;
-            document.getElementById('remainingFeeds').textContent = remainingCount > 0 ? ` （残り ${remainingCount} フィード）` : '';
+            const totalFeeds = feedsData.length;
+            const readFeeds = totalFeeds - unreadFeeds.length;
+            const progress = (readFeeds / totalFeeds) * 100;
+            document.getElementById('progress').style.width = progress + '%';
         }
 
         async function loadArticles(feedId) {
             document.getElementById('purgeButton').style.display = 'block';
-            const response = await fetch(`/api/load_articles?feed_id=${feedId}`);
+            // スター記事を除外するクエリパラメータを追加
+            const response = await fetch(`/api/load_articles?feed_id=${feedId}&exclude_starred=true`);
             const data = await response.json();
             const articleList = document.getElementById('articleList');
             articleList.innerHTML = '';
             articleElements = [];
             articlesData = data.articles || [];
             if (articlesData.length > 0) {
+                document.getElementById('allRead').style.display = 'none';
                 articlesData.forEach((article, index) => {
                     const articleItem = document.createElement('li');
                     articleItem.className = `article-item ${article.is_read ? 'read' : 'unread'}`;
@@ -363,7 +354,8 @@
                 currentArticleIndex = -1;
                 selectedIndex = -1;
             } else {
-                articleList.innerHTML = '<li>記事が見つかりませんでした</li>';
+                articleList.innerHTML = '';
+                document.getElementById('allRead').style.display = 'block';
                 articleElements = [];
                 articlesData = [];
                 selectedIndex = -1;
@@ -422,6 +414,16 @@
                 if (articleElements[currentArticleIndex]) {
                     articleElements[currentArticleIndex].dataset.starred = starred;
                 }
+                // スターした記事は一覧から削除
+                if (starred) {
+                    articleElements[currentArticleIndex].remove();
+                    articleElements.splice(currentArticleIndex, 1);
+                    articlesData.splice(currentArticleIndex, 1);
+                    if (currentArticleIndex < selectedIndex) {
+                        selectedIndex--;
+                    }
+                    currentArticleIndex = -1;
+                }
                 await fetch('/api/mark_as_read', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -435,50 +437,6 @@
                 top: direction === 'up' ? -window.innerHeight + 100 : window.innerHeight - 100,
                 behavior: 'auto'
             });
-        }
-
-        function normalize(s) {
-            return caseConvert(widthConvert(kanaConvert((s || '').trim())));
-        }
-
-        function caseConvert(s) {
-            return s.toLowerCase();
-        }
-
-        function widthConvert(s) {
-            return s.replace(/[Ａ-Ｚａ-ｚ０-９]/g, m => String.fromCharCode(m.charCodeAt(0) - 0xFEE0));
-        }
-
-        function kanaConvert(s) {
-            return s.replace(/[ァ-ヴ]/g, m => String.fromCharCode(m.charCodeAt(0) - 0x60));
-        }
-
-        document.getElementById('articleSearchInput').addEventListener('input', function (e) {
-            const searchTerm = normalize(e.target.value);
-            const articleItems = document.querySelectorAll('.article-item');
-            articleItems.forEach(item => {
-                const titleElement = item.querySelector('.article-title a');
-                const title = normalize(titleElement.textContent);
-                const summaryElement = item.querySelector('.summary');
-                const summaryText = summaryElement ? normalize(summaryElement.textContent) : '';
-                if (title.includes(searchTerm) || summaryText.includes(searchTerm)) {
-                    item.style.display = '';
-                    const originalTitle = titleElement.textContent;
-                    titleElement.innerHTML = highlightText(originalTitle, searchTerm);
-                    if (summaryElement) {
-                        const originalSummary = summaryElement.textContent;
-                        summaryElement.innerHTML = highlightText(originalSummary, searchTerm);
-                    }
-                } else {
-                    item.style.display = 'none';
-                }
-            });
-        });
-
-        function highlightText(text, searchTerm) {
-            if (!searchTerm) return text;
-            const regex = new RegExp(searchTerm, 'gi');
-            return text.replace(regex, match => `<span class="highlight">${match}</span>`);
         }
 
         async function executePurge() {
@@ -516,14 +474,14 @@
                     document.getElementById('currentFeedTitle').textContent = nextFeed.title;
                     document.getElementById('currentFeedName').textContent = nextFeed.title;
                     await loadArticles(nextFeed.id);
-                    updateRemainingFeeds();
+                    updateProgressBar();
                 } else {
                     if (feedsData.length > 0) {
                         currentFeedId = feedsData[0].id;
                         document.getElementById('currentFeedTitle').textContent = feedsData[0].title;
                         document.getElementById('currentFeedName').textContent = feedsData[0].title;
                         await loadArticles(feedsData[0].id);
-                        updateRemainingFeeds();
+                        updateProgressBar();
                     }
                 }
             } else {
@@ -533,7 +491,6 @@
 
         document.addEventListener('keydown', async (e) => {
             if (document.activeElement.tagName === 'INPUT') return;
-
             switch (e.key) {
                 case 'j':
                     e.preventDefault();
@@ -577,5 +534,4 @@
         });
     </script>
 </body>
-
 </html>

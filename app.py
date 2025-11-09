@@ -18,20 +18,16 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 
 load_dotenv()
-
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
-
 
 def get_db_connection():
     db_url = os.getenv("DATABASE_URL")
     conn = psycopg2.connect(db_url, sslmode="require")
     return conn
 
-
 def generate_token():
     return secrets.token_urlsafe(32)
-
 
 def init_db():
     conn = get_db_connection()
@@ -70,7 +66,6 @@ def init_db():
     cur.close()
     conn.close()
 
-
 def fetch_full_content(url):
     try:
         headers = {
@@ -99,7 +94,6 @@ def fetch_full_content(url):
         print(f"Error fetching full content: {e}")
         return None
 
-
 def extract_feed_url_from_html(html_url):
     try:
         headers = {
@@ -119,7 +113,6 @@ def extract_feed_url_from_html(html_url):
     except Exception as e:
         print(f"Error extracting feed URL: {e}")
         return None
-
 
 @app.route("/")
 def index():
@@ -153,7 +146,6 @@ def index():
     resp = make_response(render_template("index.html", token=token))
     resp.set_cookie("token", token)
     return resp
-
 
 @app.route("/api/add_feed", methods=["POST"])
 def add_feed():
@@ -189,7 +181,6 @@ def add_feed():
         conn.close()
     return jsonify({"status": "success", "title": feed_title})
 
-
 @app.route("/api/update_feed", methods=["POST"])
 def update_feed():
     token = request.cookies.get("token") or request.json.get("token")
@@ -223,14 +214,13 @@ def update_feed():
         # 記事を保存
         cur.execute(
             """
-            INSERT INTO articles_d4e5f6 (feed_id, title, url, content, published_at, token, unlisted)
-            VALUES (%s, %s, %s, %s, %s, %s, FALSE)
+            INSERT INTO articles_d4e5f6 (feed_id, title, url, content, published_at, token)
+            VALUES (%s, %s, %s, %s, %s, %s)
             ON CONFLICT (url, token) DO NOTHING
             """,
             (feed_id, entry.title, entry.link, content, published_at, token),
         )
         new_articles += cur.rowcount
-
     # フィードの更新頻度と最後にチェックした時間を更新
     cur.execute(
         """
@@ -240,7 +230,6 @@ def update_feed():
         """,
         (new_articles, feed_id, token),
     )
-
     # 更新頻度に基づいて次回のチェック時間を設定
     if new_articles > 0:
         # 更新頻度に基づいて次回のチェック時間を設定
@@ -262,12 +251,10 @@ def update_feed():
             """,
             (feed_id, token),
         )
-
     conn.commit()
     cur.close()
     conn.close()
     return jsonify({"status": "success", "new_articles": new_articles})
-
 
 @app.route("/api/feeds_to_poll")
 def feeds_to_poll():
@@ -292,7 +279,6 @@ def feeds_to_poll():
     conn.close()
     return jsonify({"feeds": feeds})
 
-
 @app.route("/api/all_feeds_with_frequency")
 def all_feeds_with_frequency():
     token = request.cookies.get("token")
@@ -315,7 +301,6 @@ def all_feeds_with_frequency():
     conn.close()
     return jsonify({"feeds": feeds})
 
-
 @app.route("/api/all_feeds")
 def all_feeds():
     token = request.cookies.get("token")
@@ -335,7 +320,6 @@ def all_feeds():
     conn.close()
     return jsonify({"feeds": feeds})
 
-
 @app.route("/api/load_feeds")
 def load_feeds():
     token = request.cookies.get("token")
@@ -347,12 +331,12 @@ def load_feeds():
     cur.execute(
         """
         SELECT f.id, f.url, f.title,
-               (SELECT COUNT(*) FROM articles_d4e5f6 WHERE feed_id = f.id AND is_read = FALSE AND token = f.token AND unlisted = FALSE) as unread_count
+               (SELECT COUNT(*) FROM articles_d4e5f6 WHERE feed_id = f.id AND is_read = FALSE AND token = f.token) as unread_count
         FROM feeds_a1b2c3 f
         WHERE f.token = %s
         AND EXISTS (
             SELECT 1 FROM articles_d4e5f6
-            WHERE feed_id = f.id AND is_read = FALSE AND token = f.token AND unlisted = FALSE
+            WHERE feed_id = f.id AND is_read = FALSE AND token = f.token
         )
         ORDER BY unread_count ASC
         """,
@@ -365,7 +349,6 @@ def load_feeds():
     cur.close()
     conn.close()
     return jsonify({"feeds": feeds})
-
 
 @app.route("/api/fetch_articles", methods=["POST"])
 def fetch_articles():
@@ -399,8 +382,8 @@ def fetch_articles():
         # 記事を保存
         cur.execute(
             """
-            INSERT INTO articles_d4e5f6 (feed_id, title, url, content, published_at, token, unlisted)
-            VALUES (%s, %s, %s, %s, %s, %s, FALSE)
+            INSERT INTO articles_d4e5f6 (feed_id, title, url, content, published_at, token)
+            VALUES (%s, %s, %s, %s, %s, %s)
             ON CONFLICT (url, token) DO NOTHING
             """,
             (feed_id, entry.title, entry.link, content, published_at, token),
@@ -410,7 +393,6 @@ def fetch_articles():
     conn.close()
     return jsonify({"status": "success"})
 
-
 @app.route("/api/load_articles")
 def load_articles():
     try:
@@ -418,27 +400,40 @@ def load_articles():
         if not token:
             return jsonify({"error": "Token not found"}), 403
         feed_id = request.args.get("feed_id")
+        exclude_starred = request.args.get("exclude_starred", "false").lower() == "true"
         if not feed_id:
             return jsonify({"error": "Feed ID is required"}), 400
         conn = get_db_connection()
         cur = conn.cursor()
-        # スターした記事と unlisted = FALSE の記事のみを表示
-        cur.execute(
-            """
-            SELECT a.id, a.title, a.url, a.content, a.published_at, a.is_read, a.starred, f.url as feed_url
-            FROM articles_d4e5f6 a
-            JOIN feeds_a1b2c3 f ON a.feed_id = f.id
-            WHERE a.feed_id = %s AND a.token = %s AND (a.starred = TRUE OR a.unlisted = FALSE)
-            ORDER BY
-                CASE
-                    WHEN a.is_read = FALSE THEN 0  -- 未読が最優先
-                    WHEN a.is_read = TRUE AND a.starred = FALSE THEN 1  -- 既読が次
-                    WHEN a.starred = TRUE THEN 2  -- スターが最後
-                END,
-                a.published_at DESC  -- それぞれのグループ内で新しい順
-            """,
-            (feed_id, token),
-        )
+        # スター記事を除外するかどうか
+        if exclude_starred:
+            cur.execute(
+                """
+                SELECT a.id, a.title, a.url, a.content, a.published_at, a.is_read, a.starred, f.url as feed_url
+                FROM articles_d4e5f6 a
+                JOIN feeds_a1b2c3 f ON a.feed_id = f.id
+                WHERE a.feed_id = %s AND a.token = %s AND a.starred = FALSE
+                ORDER BY a.published_at DESC
+                """,
+                (feed_id, token),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT a.id, a.title, a.url, a.content, a.published_at, a.is_read, a.starred, f.url as feed_url
+                FROM articles_d4e5f6 a
+                JOIN feeds_a1b2c3 f ON a.feed_id = f.id
+                WHERE a.feed_id = %s AND a.token = %s
+                ORDER BY
+                    CASE
+                        WHEN a.is_read = FALSE THEN 0  -- 未読が最優先
+                        WHEN a.is_read = TRUE AND a.starred = FALSE THEN 1  -- 既読が次
+                        WHEN a.starred = TRUE THEN 2  -- スターが最後
+                    END,
+                    a.published_at DESC  -- それぞれのグループ内で新しい順
+                """,
+                (feed_id, token),
+            )
         articles = [
             {
                 "id": row[0],
@@ -461,9 +456,6 @@ def load_articles():
     except Exception as e:
         print(f"Unexpected error: {e}")
         return jsonify({"error": "Internal server error"}), 500
-
-        return jsonify({"error": "Internal server error"}), 500
-
 
 @app.route("/api/fetch_full_content", methods=["POST"])
 def api_fetch_full_content():
@@ -502,7 +494,6 @@ def api_fetch_full_content():
     conn.close()
     return jsonify({"content": full_content})
 
-
 @app.route("/api/mark_as_read", methods=["POST"])
 def mark_as_read():
     token = request.cookies.get("token")
@@ -526,7 +517,6 @@ def mark_as_read():
     conn.close()
     return jsonify({"status": "success"})
 
-
 @app.route("/api/mark_starred_as_read", methods=["POST"])
 def mark_starred_as_read():
     token = request.cookies.get("token")
@@ -547,7 +537,6 @@ def mark_starred_as_read():
     cur.close()
     conn.close()
     return jsonify({"status": "success"})
-
 
 @app.route("/api/toggle_starred", methods=["POST"])
 def toggle_starred():
@@ -572,7 +561,6 @@ def toggle_starred():
     conn.close()
     return jsonify({"status": "success"})
 
-
 @app.route("/api/subscribe_feed", methods=["POST"])
 def subscribe_feed():
     token = request.cookies.get("token")
@@ -581,22 +569,18 @@ def subscribe_feed():
     url = request.json.get("url")
     if not url:
         return jsonify({"error": "URL is required"}), 400
-
     # URLからホスト名を取得
     parsed_url = urlparse(url)
     if not parsed_url.hostname:
         return jsonify({"error": "Invalid URL"}), 400
-
     # HTMLからフィードURLを抽出
     feed_url = extract_feed_url_from_html(url)
     if not feed_url:
         return jsonify({"error": "No feed found on the page"}), 404
-
     # フィードをパースしてタイトルを取得
     feed = feedparser.parse(feed_url)
     if not feed.feed.get("title"):
         return jsonify({"error": "Invalid feed"}), 400
-
     conn = get_db_connection()
     cur = conn.cursor()
     # フィードが既に登録されているか確認
@@ -610,7 +594,6 @@ def subscribe_feed():
         cur.close()
         conn.close()
         return jsonify({"error": "Feed already exists"}), 400
-
     # フィードを登録
     cur.execute(
         """
@@ -623,7 +606,6 @@ def subscribe_feed():
     cur.close()
     conn.close()
     return jsonify({"status": "success"})
-
 
 @app.route("/api/load_starred_articles")
 def load_starred_articles():
@@ -657,7 +639,6 @@ def load_starred_articles():
     conn.close()
     return jsonify({"articles": articles})
 
-
 @app.route("/api/purge_feed", methods=["POST"])
 def purge_feed():
     token = request.cookies.get("token")
@@ -668,11 +649,10 @@ def purge_feed():
         return jsonify({"error": "Feed ID is required"}), 400
     conn = get_db_connection()
     cur = conn.cursor()
-    # スター以外の記事を unlisted = TRUE に更新
+    # スター以外の記事を削除
     cur.execute(
         """
-        UPDATE articles_d4e5f6
-        SET unlisted = TRUE
+        DELETE FROM articles_d4e5f6
         WHERE feed_id = %s AND token = %s AND starred = FALSE
         """,
         (feed_id, token),
@@ -681,7 +661,6 @@ def purge_feed():
     cur.close()
     conn.close()
     return jsonify({"status": "success"})
-
 
 if __name__ == "__main__":
     with app.app_context():
