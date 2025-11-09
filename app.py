@@ -405,14 +405,14 @@ def load_articles():
             return jsonify({"error": "Feed ID is required"}), 400
         conn = get_db_connection()
         cur = conn.cursor()
-        # スター記事を除外するかどうか
+        # スター記事と既読記事を除外するかどうか
         if exclude_starred:
             cur.execute(
                 """
                 SELECT a.id, a.title, a.url, a.content, a.published_at, a.is_read, a.starred, f.url as feed_url
                 FROM articles_d4e5f6 a
                 JOIN feeds_a1b2c3 f ON a.feed_id = f.id
-                WHERE a.feed_id = %s AND a.token = %s AND a.starred = FALSE
+                WHERE a.feed_id = %s AND a.token = %s AND a.starred = FALSE AND a.is_read = FALSE
                 ORDER BY a.published_at DESC
                 """,
                 (feed_id, token),
@@ -456,6 +456,7 @@ def load_articles():
     except Exception as e:
         print(f"Unexpected error: {e}")
         return jsonify({"error": "Internal server error"}), 500
+
 
 @app.route("/api/fetch_full_content", methods=["POST"])
 def api_fetch_full_content():
