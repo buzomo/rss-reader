@@ -153,18 +153,6 @@
             font-size: 14px;
             z-index: 999;
         }
-        #progressBar {
-            height: 10px;
-            background-color: #ddd;
-            border-radius: 5px;
-            margin-top: 5px;
-        }
-        #progress {
-            height: 100%;
-            background-color: #4CAF50;
-            border-radius: 5px;
-            width: 0%;
-        }
         #allRead {
             display: none;
             text-align: center;
@@ -176,6 +164,19 @@
             margin-top: 20px;
             max-width: 300px;
         }
+        #remainingFeedsIndicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 18px;
+            z-index: 1000;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -186,8 +187,8 @@
     <button id="purgeButton" onclick="executePurge()">🗑️</button>
     <div id="bottomBanner">
         <span id="currentFeedName">ニュース一覧</span>
-        <div id="progressBar"><div id="progress"></div></div>
     </div>
+    <div id="remainingFeedsIndicator"></div>
     <div class="container">
         <div id="articlesSection" class="section">
             <h2 id="articleHeader">
@@ -280,7 +281,7 @@
             const response = await fetch('/api/load_feeds');
             const data = await response.json();
             feedsData = data.feeds;
-            updateProgressBar();
+            updateRemainingFeedsIndicator();
             for (const feed of feedsData) {
                 if (feed.unread_count > 0) {
                     currentFeedId = feed.id;
@@ -292,17 +293,20 @@
             }
         }
 
-        function updateProgressBar() {
+        function updateRemainingFeedsIndicator() {
             const unreadFeeds = feedsData.filter(feed => feed.unread_count > 0);
-            const totalFeeds = feedsData.length;
-            const readFeeds = totalFeeds - unreadFeeds.length;
-            const progress = (readFeeds / totalFeeds) * 100;
-            document.getElementById('progress').style.width = progress + '%';
+            const remainingCount = unreadFeeds.length;
+            const indicator = document.getElementById('remainingFeedsIndicator');
+            if (remainingCount > 0) {
+                indicator.textContent = `残り ${remainingCount} フィード`;
+                indicator.style.display = 'block';
+            } else {
+                indicator.style.display = 'none';
+            }
         }
 
         async function loadArticles(feedId) {
             document.getElementById('purgeButton').style.display = 'block';
-            // スター記事を除外するクエリパラメータを追加
             const response = await fetch(`/api/load_articles?feed_id=${feedId}&exclude_starred=true`);
             const data = await response.json();
             const articleList = document.getElementById('articleList');
@@ -414,7 +418,6 @@
                 if (articleElements[currentArticleIndex]) {
                     articleElements[currentArticleIndex].dataset.starred = starred;
                 }
-                // スターした記事は一覧から削除
                 if (starred) {
                     articleElements[currentArticleIndex].remove();
                     articleElements.splice(currentArticleIndex, 1);
@@ -474,14 +477,14 @@
                     document.getElementById('currentFeedTitle').textContent = nextFeed.title;
                     document.getElementById('currentFeedName').textContent = nextFeed.title;
                     await loadArticles(nextFeed.id);
-                    updateProgressBar();
+                    updateRemainingFeedsIndicator();
                 } else {
                     if (feedsData.length > 0) {
                         currentFeedId = feedsData[0].id;
                         document.getElementById('currentFeedTitle').textContent = feedsData[0].title;
                         document.getElementById('currentFeedName').textContent = feedsData[0].title;
                         await loadArticles(feedsData[0].id);
-                        updateProgressBar();
+                        updateRemainingFeedsIndicator();
                     }
                 }
             } else {
