@@ -18,17 +18,19 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 
 load_dotenv()
-
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
+
 
 def get_db_connection():
     db_url = os.getenv("DATABASE_URL")
     conn = psycopg2.connect(db_url, sslmode="require")
     return conn
 
+
 def generate_token():
     return secrets.token_urlsafe(32)
+
 
 def init_db():
     conn = get_db_connection()
@@ -42,6 +44,9 @@ def init_db():
             title TEXT NOT NULL,
             priority INTEGER DEFAULT 0,
             token TEXT NOT NULL,
+            update_frequency INTEGER DEFAULT 0,
+            last_checked TIMESTAMP,
+            next_check TIMESTAMP,
             UNIQUE (url, token)
         )
     """
@@ -66,6 +71,7 @@ def init_db():
     conn.commit()
     cur.close()
     conn.close()
+
 
 def fetch_full_content(url):
     try:
@@ -95,6 +101,7 @@ def fetch_full_content(url):
         print(f"Error fetching full content: {e}")
         return None
 
+
 def extract_feed_url_from_html(html_url):
     try:
         headers = {
@@ -115,6 +122,7 @@ def extract_feed_url_from_html(html_url):
         print(f"Error extracting feed URL: {e}")
         return None
 
+
 @app.route("/")
 def index():
     token = request.args.get("token")
@@ -125,7 +133,6 @@ def index():
         resp = make_response(redirect(url_for("index", token=token)))
         resp.set_cookie("token", token)
         return resp
-
     feed_url = request.args.get("feed_url")
     if feed_url:
         feed = feedparser.parse(feed_url)
@@ -149,10 +156,25 @@ def index():
             conn.commit()
         cur.close()
         conn.close()
-
     resp = make_response(render_template("index.html", token=token))
     resp.set_cookie("token", token)
     return resp
+
+
+@app.route("/find")
+def find():
+    token = request.args.get("token")
+    if not token:
+        token = request.cookies.get("token")
+    if not token:
+        token = generate_token()
+        resp = make_response(redirect(url_for("find", token=token)))
+        resp.set_cookie("token", token)
+        return resp
+    resp = make_response(render_template("find.html", token=token))
+    resp.set_cookie("token", token)
+    return resp
+
 
 @app.route("/api/add_feed", methods=["POST"])
 def add_feed():
@@ -187,6 +209,7 @@ def add_feed():
         cur.close()
         conn.close()
     return jsonify({"status": "success", "title": feed_title})
+
 
 @app.route("/api/update_feed", methods=["POST"])
 def update_feed():
@@ -263,6 +286,7 @@ def update_feed():
     conn.close()
     return jsonify({"status": "success", "new_articles": new_articles})
 
+
 @app.route("/api/feeds_to_poll")
 def feeds_to_poll():
     token = request.cookies.get("token")
@@ -286,6 +310,7 @@ def feeds_to_poll():
     conn.close()
     return jsonify({"feeds": feeds})
 
+
 @app.route("/api/all_feeds_with_frequency")
 def all_feeds_with_frequency():
     token = request.cookies.get("token")
@@ -308,6 +333,7 @@ def all_feeds_with_frequency():
     conn.close()
     return jsonify({"feeds": feeds})
 
+
 @app.route("/api/all_feeds")
 def all_feeds():
     token = request.cookies.get("token")
@@ -326,6 +352,7 @@ def all_feeds():
     cur.close()
     conn.close()
     return jsonify({"feeds": feeds})
+
 
 @app.route("/api/load_feeds")
 def load_feeds():
@@ -356,6 +383,7 @@ def load_feeds():
     cur.close()
     conn.close()
     return jsonify({"feeds": feeds})
+
 
 @app.route("/api/fetch_articles", methods=["POST"])
 def fetch_articles():
@@ -399,6 +427,7 @@ def fetch_articles():
     cur.close()
     conn.close()
     return jsonify({"status": "success"})
+
 
 @app.route("/api/load_articles")
 def load_articles():
@@ -464,6 +493,7 @@ def load_articles():
         print(f"Unexpected error: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
+
 @app.route("/api/fetch_full_content", methods=["POST"])
 def api_fetch_full_content():
     token = request.cookies.get("token")
@@ -501,6 +531,7 @@ def api_fetch_full_content():
     conn.close()
     return jsonify({"content": full_content})
 
+
 @app.route("/api/mark_as_read", methods=["POST"])
 def mark_as_read():
     token = request.cookies.get("token")
@@ -524,6 +555,7 @@ def mark_as_read():
     conn.close()
     return jsonify({"status": "success"})
 
+
 @app.route("/api/mark_starred_as_read", methods=["POST"])
 def mark_starred_as_read():
     token = request.cookies.get("token")
@@ -544,6 +576,7 @@ def mark_starred_as_read():
     cur.close()
     conn.close()
     return jsonify({"status": "success"})
+
 
 @app.route("/api/toggle_starred", methods=["POST"])
 def toggle_starred():
@@ -567,6 +600,7 @@ def toggle_starred():
     cur.close()
     conn.close()
     return jsonify({"status": "success"})
+
 
 @app.route("/api/subscribe_feed", methods=["POST"])
 def subscribe_feed():
@@ -614,6 +648,7 @@ def subscribe_feed():
     conn.close()
     return jsonify({"status": "success"})
 
+
 @app.route("/api/load_starred_articles")
 def load_starred_articles():
     token = request.cookies.get("token")
@@ -646,6 +681,7 @@ def load_starred_articles():
     conn.close()
     return jsonify({"articles": articles})
 
+
 @app.route("/api/purge_feed", methods=["POST"])
 def purge_feed():
     token = request.cookies.get("token")
@@ -669,6 +705,45 @@ def purge_feed():
     cur.close()
     conn.close()
     return jsonify({"status": "success"})
+
+
+@app.route("/api/search_articles")
+def search_articles():
+    token = request.args.get("token")
+    query = request.args.get("query")
+    if not token or not query:
+        return jsonify({"error": "Token and query are required"}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT a.id, a.title, a.url, a.content, a.published_at, a.is_read, a.starred, f.url as feed_url
+        FROM articles_d4e5f6 a
+        JOIN feeds_a1b2c3 f ON a.feed_id = f.id
+        WHERE a.token = %s
+        AND (a.title ILIKE %s OR a.content ILIKE %s)
+        ORDER BY a.published_at DESC
+        """,
+        (token, f"%{query}%", f"%{query}%"),
+    )
+    articles = [
+        {
+            "id": row[0],
+            "title": row[1],
+            "url": row[2],
+            "content": row[3],
+            "published_at": row[4].isoformat() if row[4] else None,
+            "is_read": row[5],
+            "starred": row[6],
+            "feed_url": row[7],
+        }
+        for row in cur.fetchall()
+    ]
+    cur.close()
+    conn.close()
+    return jsonify({"articles": articles})
+
 
 with app.app_context():
     init_db()

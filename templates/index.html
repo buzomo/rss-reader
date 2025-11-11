@@ -359,12 +359,10 @@
         let articlesData = [];
         let selectedIndex = -1;
         let feedsData = [];
-
         document.addEventListener('contextmenu', function (e) {
             e.preventDefault();
             openModal();
         });
-
         document.getElementById('fileInput').addEventListener('change', function (e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -375,17 +373,14 @@
             importOPML(file);
             e.target.value = '';
         });
-
         function openModal() {
             document.getElementById('contextModal').style.display = 'block';
         }
-
         function closeModal() {
             document.getElementById('contextModal').style.display = 'none';
             document.getElementById('urlContent').style.display = 'none';
             document.getElementById('addFeedSection').style.display = 'none';
         }
-
         function showUrlContent() {
             const url = `https://idy.vercel.app/q/${encodeURIComponent(window.location.href)}`;
             document.getElementById('shareUrl').href = url;
@@ -393,11 +388,9 @@
             document.getElementById('qrcode').innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(url)}" alt="QR Code" />`;
             document.getElementById('urlContent').style.display = 'block';
         }
-
         function showAddFeed() {
             document.getElementById('addFeedSection').style.display = 'block';
         }
-
         async function addFeed() {
             const feedUrl = document.getElementById('feedInput').value.trim();
             if (!feedUrl) return;
@@ -415,7 +408,6 @@
                 console.error('フィードの追加に失敗しました:', e);
             }
         }
-
         async function importOPML(file) {
             const reader = new FileReader();
             reader.onload = async function (e) {
@@ -431,7 +423,6 @@
             };
             reader.readAsText(file);
         }
-
         function parseOPML(opmlText) {
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(opmlText, "text/xml");
@@ -448,7 +439,6 @@
             }
             return feeds;
         }
-
         async function subscribeFeeds(feeds) {
             for (const feed of feeds) {
                 try {
@@ -464,7 +454,6 @@
                 }
             }
         }
-
         async function loadFeeds() {
             const response = await fetch('/api/load_feeds');
             const data = await response.json();
@@ -484,7 +473,6 @@
                 showAllRead();
             }
         }
-
         async function purgeAndNextFeed() {
             if (!currentFeedId) {
                 console.log('フィードが選択されていません。');
@@ -527,20 +515,12 @@
                 console.log('パージに失敗しました。');
             }
         }
-
         function showAllRead() {
-            const allReadElement = document.getElementById('allRead');
-            const container = document.querySelector('.container');
-            const rightEdgeArea = document.getElementById('rightEdgeArea');
-            const remainingFeedsIndicator = document.getElementById('remainingFeedsIndicator');
-            while (container.firstChild) {
-                container.removeChild(container.firstChild);
-            }
-            rightEdgeArea.style.display = 'none';
-            remainingFeedsIndicator.style.display = 'none';
-            allReadElement.style.display = 'block';
+            document.getElementById('articlesSection').style.display = 'none';
+            document.getElementById('allRead').style.display = 'block';
+            document.getElementById('rightEdgeArea').style.display = 'none';
+            document.getElementById('remainingFeedsIndicator').style.display = 'none';
         }
-
         function updateRemainingFeedsIndicator() {
             const unreadFeeds = feedsData.filter(feed => feed.unread_count > 0);
             const remainingCount = unreadFeeds.length;
@@ -552,7 +532,6 @@
                 indicator.style.display = 'none';
             }
         }
-
         async function loadArticles(feedId) {
             const response = await fetch(`/api/load_articles?feed_id=${feedId}&exclude_starred=true`);
             const data = await response.json();
@@ -562,6 +541,7 @@
             articlesData = data.articles || [];
             if (articlesData.length > 0) {
                 document.getElementById('allRead').style.display = 'none';
+                document.getElementById('articlesSection').style.display = 'block';
                 articlesData.forEach((article, index) => {
                     const articleItem = document.createElement('li');
                     articleItem.className = `article-item ${article.is_read ? 'read' : 'unread'}`;
@@ -612,7 +592,6 @@
                 selectedIndex = -1;
             }
         }
-
         function updateSelectedItem() {
             articleElements.forEach((item, index) => {
                 if (index === selectedIndex) {
@@ -623,7 +602,6 @@
                 }
             });
         }
-
         async function toggleSummary(articleItem, articleId, content, url, index) {
             let summary = articleItem.querySelector('.summary');
             if (summary && currentSummaryElement === summary) {
@@ -652,7 +630,6 @@
             });
             articleItem.scrollIntoView({ behavior: 'auto', block: 'start' });
         }
-
         async function toggleStarred(articleId, starred, button) {
             const response = await fetch('/api/toggle_starred', {
                 method: 'POST',
@@ -684,14 +661,12 @@
                 });
             }
         }
-
         function scrollPage(direction) {
             window.scrollBy({
                 top: direction === 'up' ? -window.innerHeight + 100 : window.innerHeight - 100,
                 behavior: 'auto'
             });
         }
-
         document.addEventListener('keydown', async (e) => {
             if (document.activeElement.tagName === 'INPUT') return;
             switch (e.key) {
@@ -727,7 +702,6 @@
                     break;
             }
         });
-
         document.addEventListener('DOMContentLoaded', () => {
             loadFeeds();
         });

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -24,6 +25,7 @@
             --modal-button-bg: #f0f0f0;
             --modal-button-hover: #e0e0e0;
         }
+
         @media (prefers-color-scheme: dark) {
             :root {
                 --bg-color: #121212;
@@ -42,6 +44,7 @@
                 --modal-button-hover: #4a4a4a;
             }
         }
+
         body {
             font-family: Arial, sans-serif;
             margin: 0;
@@ -49,12 +52,14 @@
             background-color: var(--bg-color);
             color: var(--text-color);
         }
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
             padding-bottom: 80px;
         }
+
         .section {
             background-color: var(--container-bg);
             border-radius: 5px;
@@ -62,9 +67,11 @@
             margin-bottom: 20px;
             box-shadow: 0 2px 5px transparent;
         }
+
         .search-box {
             margin-bottom: 20px;
         }
+
         #searchInput {
             width: 100%;
             padding: 10px;
@@ -74,10 +81,12 @@
             background-color: var(--container-bg);
             color: var(--text-color);
         }
+
         .article-list {
             list-style: none;
             padding: 0;
         }
+
         .article-item {
             padding: 12px 10px;
             border-bottom: 1px solid var(--border-color);
@@ -85,24 +94,30 @@
             flex-direction: column;
             background-color: var(--article-bg);
         }
+
         .article-item:hover {
             background-color: var(--article-hover);
         }
+
         .article-item.selected {
             background-color: var(--article-selected);
         }
+
         .unread {
             font-weight: bold;
             color: var(--text-color);
         }
+
         .read {
             color: var(--text-secondary);
         }
+
         .article-header {
             display: flex;
             align-items: flex-start;
             margin-bottom: 8px;
         }
+
         .star-btn {
             margin-right: 10px;
             font-size: 20px;
@@ -113,26 +128,32 @@
             line-height: 1;
             color: var(--text-secondary);
         }
+
         .star-btn.starred {
             color: #ffd700;
         }
+
         .article-title {
             flex-grow: 1;
         }
+
         .article-title a {
             color: inherit;
             text-decoration: none;
             font-size: 16px;
         }
+
         .article-title a:hover {
             text-decoration: underline;
         }
+
         .article-date {
             color: var(--text-secondary);
             font-size: 14px;
             margin-left: 10px;
             white-space: nowrap;
         }
+
         .summary {
             margin-top: 12px;
             font-size: 16px;
@@ -143,12 +164,14 @@
             border-radius: 4px;
             border-left: 4px solid var(--summary-border);
         }
+
         h2 {
             margin-bottom: 10px;
             display: flex;
             align-items: center;
             color: var(--text-color);
         }
+
         #noResults {
             text-align: center;
             margin-top: 50px;
@@ -157,6 +180,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="section">
@@ -333,4 +357,5 @@
         });
     </script>
 </body>
+
 </html>
