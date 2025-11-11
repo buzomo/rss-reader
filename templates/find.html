@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RSS Reader - 検索</title>
+    <link rel="icon"
+        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🔍%3C/text%3E%3C/svg%3E"
+        type="image/svg+xml">
+    <style>
+        :root {
+            --bg-color: #f4f4f4;
+            --container-bg: white;
+            --article-bg: white;
+            --article-hover: #f9f9f9;
+            --article-selected: #ffebee;
+            --text-color: #333;
+            --text-secondary: #999;
+            --border-color: #eee;
+            --summary-bg: #fefefe;
+            --summary-border: #e0e0e0;
+            --modal-bg: #fefefe;
+            --modal-text: #333;
+            --modal-button-bg: #f0f0f0;
+            --modal-button-hover: #e0e0e0;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #121212;
+                --container-bg: #1e1e1e;
+                --article-bg: #2d2d2d;
+                --article-hover: #3a3a3a;
+                --article-selected: #422d2d;
+                --text-color: #e0e0e0;
+                --text-secondary: #aaaaaa;
+                --border-color: #444;
+                --summary-bg: #252525;
+                --summary-border: #555;
+                --modal-bg: #2d2d2d;
+                --modal-text: #e0e0e0;
+                --modal-button-bg: #3a3a3a;
+                --modal-button-hover: #4a4a4a;
+            }
+        }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            padding-bottom: 80px;
+        }
+        .section {
+            background-color: var(--container-bg);
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px transparent;
+        }
+        .search-box {
+            margin-bottom: 20px;
+        }
+        #searchInput {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--container-bg);
+            color: var(--text-color);
+        }
+        .article-list {
+            list-style: none;
+            padding: 0;
+        }
+        .article-item {
+            padding: 12px 10px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            background-color: var(--article-bg);
+        }
+        .article-item:hover {
+            background-color: var(--article-hover);
+        }
+        .article-item.selected {
+            background-color: var(--article-selected);
+        }
+        .unread {
+            font-weight: bold;
+            color: var(--text-color);
+        }
+        .read {
+            color: var(--text-secondary);
+        }
+        .article-header {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+        .star-btn {
+            margin-right: 10px;
+            font-size: 20px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            min-width: 30px;
+            line-height: 1;
+            color: var(--text-secondary);
+        }
+        .star-btn.starred {
+            color: #ffd700;
+        }
+        .article-title {
+            flex-grow: 1;
+        }
+        .article-title a {
+            color: inherit;
+            text-decoration: none;
+            font-size: 16px;
+        }
+        .article-title a:hover {
+            text-decoration: underline;
+        }
+        .article-date {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-left: 10px;
+            white-space: nowrap;
+        }
+        .summary {
+            margin-top: 12px;
+            font-size: 16px;
+            color: var(--text-color);
+            line-height: 1.8;
+            padding: 12px;
+            background-color: var(--summary-bg);
+            border-radius: 4px;
+            border-left: 4px solid var(--summary-border);
+        }
+        h2 {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            color: var(--text-color);
+        }
+        #noResults {
+            text-align: center;
+            margin-top: 50px;
+            font-size: 18px;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="section">
+            <h2>記事を検索</h2>
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="タイトル・本文を検索..." autocomplete="off">
+            </div>
+            <ul class="article-list" id="articleList"></ul>
+            <div id="noResults" style="display: none;">検索結果が見つかりませんでした</div>
+        </div>
+    </div>
+    <script>
+        let currentToken = "{{ token }}";
+        let searchTimeout = null;
+        let selectedIndex = -1;
+        let articleElements = [];
+        let articlesData = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('searchInput').addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    const query = e.target.value.trim();
+                    if (query.length >= 2) {
+                        searchArticles(query);
+                    } else {
+                        document.getElementById('articleList').innerHTML = '';
+                        document.getElementById('noResults').style.display = 'none';
+                    }
+                }, 500);
+            });
+        });
+
+        async function searchArticles(query) {
+            try {
+                const response = await fetch(`/api/search_articles?query=${encodeURIComponent(query)}&token=${currentToken}`);
+                const data = await response.json();
+                articlesData = data.articles || [];
+                renderArticles();
+            } catch (e) {
+                console.error('検索に失敗しました:', e);
+            }
+        }
+
+        function renderArticles() {
+            const articleList = document.getElementById('articleList');
+            articleList.innerHTML = '';
+            articleElements = [];
+
+            if (articlesData.length === 0) {
+                document.getElementById('noResults').style.display = 'block';
+                return;
+            } else {
+                document.getElementById('noResults').style.display = 'none';
+            }
+
+            articlesData.forEach((article, index) => {
+                const articleItem = document.createElement('li');
+                articleItem.className = `article-item ${article.is_read ? 'read' : 'unread'}`;
+                articleItem.dataset.index = index;
+                articleItem.dataset.articleId = article.id;
+                articleItem.dataset.starred = article.starred;
+
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'article-header';
+
+                const starButton = document.createElement('button');
+                starButton.className = `star-btn ${article.starred ? 'starred' : ''}`;
+                starButton.innerHTML = article.starred ? '★' : '☆';
+                starButton.onclick = async (e) => {
+                    e.stopPropagation();
+                    const newStarred = !article.starred;
+                    await toggleStarred(article.id, newStarred, starButton);
+                };
+
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'article-title';
+
+                const titleLink = document.createElement('a');
+                titleLink.href = article.url;
+                titleLink.target = '_blank';
+                titleLink.textContent = article.title;
+
+                const dateSpan = document.createElement('span');
+                dateSpan.className = 'article-date';
+                dateSpan.textContent = article.published_at ? new Date(article.published_at).toLocaleString() : '';
+
+                titleDiv.appendChild(titleLink);
+                headerDiv.appendChild(starButton);
+                headerDiv.appendChild(titleDiv);
+                headerDiv.appendChild(dateSpan);
+
+                articleItem.appendChild(headerDiv);
+
+                if (article.content) {
+                    const summaryDiv = document.createElement('div');
+                    summaryDiv.className = 'summary';
+                    summaryDiv.textContent = article.content;
+                    articleItem.appendChild(summaryDiv);
+                }
+
+                articleItem.onclick = (e) => {
+                    if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON') {
+                        selectedIndex = index;
+                        updateSelectedItem();
+                    }
+                };
+
+                articleList.appendChild(articleItem);
+                articleElements.push(articleItem);
+            });
+        }
+
+        function updateSelectedItem() {
+            articleElements.forEach((item, index) => {
+                if (index === selectedIndex) {
+                    item.classList.add('selected');
+                    item.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+                } else {
+                    item.classList.remove('selected');
+                }
+            });
+        }
+
+        async function toggleStarred(articleId, starred, button) {
+            const response = await fetch('/api/toggle_starred', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: articleId, starred: starred })
+            });
+            if (response.ok) {
+                button.className = `star-btn ${starred ? 'starred' : ''}`;
+                button.innerHTML = starred ? '★' : '☆';
+                if (articleElements[selectedIndex]) {
+                    articleElements[selectedIndex].dataset.starred = starred;
+                }
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (document.activeElement.tagName === 'INPUT') return;
+            switch (e.key) {
+                case 'j':
+                    e.preventDefault();
+                    if (articleElements.length > 0) {
+                        selectedIndex = Math.min(selectedIndex + 1, articleElements.length - 1);
+                        updateSelectedItem();
+                    }
+                    break;
+                case 'k':
+                    e.preventDefault();
+                    if (articleElements.length > 0) {
+                        selectedIndex = Math.max(selectedIndex - 1, 0);
+                        updateSelectedItem();
+                    }
+                    break;
+                case 's':
+                    e.preventDefault();
+                    if (selectedIndex >= 0 && selectedIndex < articleElements.length) {
+                        const articleId = articleElements[selectedIndex].dataset.articleId;
+                        const isStarred = articleElements[selectedIndex].dataset.starred === 'true';
+                        const starButton = articleElements[selectedIndex].querySelector('.star-btn');
+                        toggleStarred(articleId, !isStarred, starButton);
+                    }
+                    break;
+                case 'o':
+                    e.preventDefault();
+                    if (selectedIndex >= 0 && selectedIndex < articleElements.length) {
+                        const url = articlesData[selectedIndex].url;
+                        window.open(url, '_blank');
+                    }
+                    break;
+            }
+        });
+    </script>
+</body>
+</html>

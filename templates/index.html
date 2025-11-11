@@ -9,11 +9,48 @@
         href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E✉%3C/text%3E%3C/svg%3E"
         type="image/svg+xml">
     <style>
+        :root {
+            --bg-color: #f4f4f4;
+            --container-bg: white;
+            --article-bg: white;
+            --article-hover: #f9f9f9;
+            --article-selected: #ffebee;
+            --text-color: #333;
+            --text-secondary: #999;
+            --border-color: #eee;
+            --summary-bg: #fefefe;
+            --summary-border: #e0e0e0;
+            --modal-bg: #fefefe;
+            --modal-text: #333;
+            --modal-button-bg: #f0f0f0;
+            --modal-button-hover: #e0e0e0;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #121212;
+                --container-bg: #1e1e1e;
+                --article-bg: #2d2d2d;
+                --article-hover: #3a3a3a;
+                --article-selected: #422d2d;
+                --text-color: #e0e0e0;
+                --text-secondary: #aaaaaa;
+                --border-color: #444;
+                --summary-bg: #252525;
+                --summary-border: #555;
+                --modal-bg: #2d2d2d;
+                --modal-text: #e0e0e0;
+                --modal-button-bg: #3a3a3a;
+                --modal-button-hover: #4a4a4a;
+            }
+        }
+
         body {
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
-            background-color: #f4f4f4;
+            background-color: var(--bg-color);
+            color: var(--text-color);
         }
 
         .container {
@@ -24,7 +61,7 @@
         }
 
         .section {
-            background-color: white;
+            background-color: var(--container-bg);
             border-radius: 5px;
             padding: 15px;
             margin-bottom: 20px;
@@ -38,26 +75,27 @@
 
         .article-item {
             padding: 12px 10px;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
+            background-color: var(--article-bg);
         }
 
         .article-item:hover {
-            background-color: #f9f9f9;
+            background-color: var(--article-hover);
         }
 
         .article-item.selected {
-            background-color: #ffebee;
+            background-color: var(--article-selected);
         }
 
         .unread {
             font-weight: bold;
-            color: black;
+            color: var(--text-color);
         }
 
         .read {
-            color: #999;
+            color: var(--text-secondary);
         }
 
         .article-header {
@@ -74,6 +112,7 @@
             border: none;
             min-width: 30px;
             line-height: 1;
+            color: var(--text-secondary);
         }
 
         .star-btn.starred {
@@ -95,7 +134,7 @@
         }
 
         .article-date {
-            color: #999;
+            color: var(--text-secondary);
             font-size: 14px;
             margin-left: 10px;
             white-space: nowrap;
@@ -104,18 +143,19 @@
         .summary {
             margin-top: 12px;
             font-size: 16px;
-            color: #333;
+            color: var(--text-color);
             line-height: 1.8;
             padding: 12px;
-            background-color: #fefefe;
+            background-color: var(--summary-bg);
             border-radius: 4px;
-            border-left: 4px solid #e0e0e0;
+            border-left: 4px solid var(--summary-border);
         }
 
         h2 {
             margin-bottom: 10px;
             display: flex;
             align-items: center;
+            color: var(--text-color);
         }
 
         #fileInput {
@@ -148,41 +188,13 @@
             height: 50vh;
         }
 
-        #purgeButton {
-            position: fixed;
-            bottom: 80px;
-            right: 20px;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background-color: #d0d0d0;
-            color: white;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            z-index: 1000;
-            display: none;
-        }
-
-        #bottomBanner {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background-color: #333;
-            color: white;
-            padding: 10px;
-            text-align: center;
-            font-size: 14px;
-            z-index: 999;
-        }
-
         #allRead {
             display: none;
             text-align: center;
             margin-top: 100px;
             font-size: 24px;
             font-weight: bold;
+            color: var(--text-color);
         }
 
         #allRead img {
@@ -202,17 +214,102 @@
             z-index: 1000;
             display: none;
         }
+
+        /* モーダルスタイル */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1001;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: var(--modal-bg);
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 5px;
+            width: 80%;
+            max-width: 500px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            color: var(--modal-text);
+        }
+
+        .close {
+            color: var(--text-secondary);
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: var(--text-color);
+        }
+
+        .modal-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .modal-button {
+            padding: 10px;
+            background-color: var(--modal-button-bg);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            color: var(--modal-text);
+        }
+
+        .modal-button:hover {
+            background-color: var(--modal-button-hover);
+        }
+
+        #urlContent {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        #shareUrl {
+            word-break: break-all;
+            display: block;
+            margin-bottom: 10px;
+            color: var(--modal-text);
+        }
+
+        #qrcode {
+            margin: 0 auto;
+            width: 150px;
+            height: 150px;
+        }
+
+        #qrcode img {
+            width: 100%;
+            height: 100%;
+        }
+
+        #feedInput {
+            width: 100%;
+            padding: 8px;
+            margin-top: 10px;
+            box-sizing: border-box;
+            background-color: var(--container-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
     </style>
 </head>
 
-<body>
+<body onclick="purgeAndNextFeed()">
     <div id="rightEdgeArea">
         <div class="page-up" onclick="scrollPage('up')"></div>
         <div class="page-down" onclick="scrollPage('down')"></div>
-    </div>
-    <button id="purgeButton" onclick="executePurge()">次</button>
-    <div id="bottomBanner">
-        <span id="currentFeedName">ニュース一覧</span>
     </div>
     <div id="remainingFeedsIndicator"></div>
     <div class="container">
@@ -223,11 +320,36 @@
             <ul class="article-list" id="articleList"></ul>
         </div>
         <div id="allRead">
-            All Read!<br>
+            All Read!!<br>
             <img src="https://cataas.com/cat" alt="cat">
         </div>
     </div>
     <input type="file" id="fileInput" accept=".opml,.xml" />
+    <!-- モーダル -->
+    <div id="contextModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h3>メニュー</h3>
+            <div class="modal-buttons">
+                <button id="showUrlBtn" class="modal-button" onclick="showUrlContent()">🔗 引き継ぎURLを表示</button>
+                <button id="addFeedBtn" class="modal-button" onclick="showAddFeed()">📥 フィードの追加</button>
+                <button id="importOpmlBtn" class="modal-button"
+                    onclick="document.getElementById('fileInput').click()">📄 OPML取り込み</button>
+                <button id="findEntriesBtn" class="modal-button" onclick="window.location.href='/find'">🔍
+                    過去のエントリを検索...</button>
+            </div>
+            <div id="urlContent" style="display: none;">
+                <h3>引き継ぎURL</h3>
+                <a id="shareUrl" target="_blank"></a>
+                <div id="qrcode"></div>
+            </div>
+            <div id="addFeedSection" style="display: none;">
+                <h3>フィードの追加</h3>
+                <input type="text" id="feedInput" placeholder="フィードのURLを入力" />
+                <button onclick="addFeed()">追加</button>
+            </div>
+        </div>
+    </div>
     <script>
         let currentToken = "{{ token }}";
         let currentFeedId = null;
@@ -235,12 +357,12 @@
         let currentArticleIndex = -1;
         let articleElements = [];
         let articlesData = [];
-        let feedsData = [];
         let selectedIndex = -1;
+        let feedsData = [];
 
         document.addEventListener('contextmenu', function (e) {
             e.preventDefault();
-            document.getElementById('fileInput').click();
+            openModal();
         });
 
         document.getElementById('fileInput').addEventListener('change', function (e) {
@@ -253,6 +375,46 @@
             importOPML(file);
             e.target.value = '';
         });
+
+        function openModal() {
+            document.getElementById('contextModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('contextModal').style.display = 'none';
+            document.getElementById('urlContent').style.display = 'none';
+            document.getElementById('addFeedSection').style.display = 'none';
+        }
+
+        function showUrlContent() {
+            const url = `https://idy.vercel.app/q/${encodeURIComponent(window.location.href)}`;
+            document.getElementById('shareUrl').href = url;
+            document.getElementById('shareUrl').textContent = url;
+            document.getElementById('qrcode').innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(url)}" alt="QR Code" />`;
+            document.getElementById('urlContent').style.display = 'block';
+        }
+
+        function showAddFeed() {
+            document.getElementById('addFeedSection').style.display = 'block';
+        }
+
+        async function addFeed() {
+            const feedUrl = document.getElementById('feedInput').value.trim();
+            if (!feedUrl) return;
+            try {
+                await fetch('/api/add_feed', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url: feedUrl })
+                });
+                console.log('フィードを追加しました。');
+                location.reload();
+            } catch (e) {
+                console.error('フィードの追加に失敗しました:', e);
+            }
+        }
 
         async function importOPML(file) {
             const reader = new FileReader();
@@ -308,46 +470,36 @@
             const data = await response.json();
             feedsData = data.feeds;
             updateRemainingFeedsIndicator();
-
-            // 未読記事のあるフィードを探す
             let hasUnread = false;
             for (const feed of feedsData) {
                 if (feed.unread_count > 0) {
                     currentFeedId = feed.id;
                     document.getElementById('currentFeedTitle').textContent = feed.title;
-                    document.getElementById('currentFeedName').textContent = feed.title;
                     await loadArticles(feed.id);
                     hasUnread = true;
                     break;
                 }
             }
-
-            // 未読記事のあるフィードが見つからない場合
             if (!hasUnread) {
-                document.getElementById('allRead').style.display = 'block';
-                document.getElementById('purgeButton').style.display = 'none';
+                showAllRead();
             }
         }
 
-        async function executePurge() {
+        async function purgeAndNextFeed() {
             if (!currentFeedId) {
                 console.log('フィードが選択されていません。');
                 return;
             }
-
             const purgeResponse = await fetch('/api/purge_feed', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ feed_id: currentFeedId })
             });
-
             if (purgeResponse.ok) {
                 const response = await fetch('/api/load_feeds');
                 const data = await response.json();
                 feedsData = data.feeds;
                 updateRemainingFeedsIndicator();
-
-                // 未読記事のある次のフィードを探す
                 let nextFeed = null;
                 const currentFeedIndex = feedsData.findIndex(feed => feed.id === currentFeedId);
                 for (let i = currentFeedIndex + 1; i < feedsData.length; i++) {
@@ -356,8 +508,6 @@
                         break;
                     }
                 }
-
-                // 次のフィードが見つからない場合、先頭から探す
                 if (!nextFeed) {
                     for (let i = 0; i < currentFeedIndex; i++) {
                         if (feedsData[i].unread_count > 0) {
@@ -366,22 +516,29 @@
                         }
                     }
                 }
-
-                // 未読記事のあるフィードが見つかった場合
                 if (nextFeed) {
                     currentFeedId = nextFeed.id;
                     document.getElementById('currentFeedTitle').textContent = nextFeed.title;
-                    document.getElementById('currentFeedName').textContent = nextFeed.title;
                     await loadArticles(nextFeed.id);
-                }
-                // 未読記事のあるフィードが見つからない場合
-                else {
-                    document.getElementById('allRead').style.display = 'block';
-                    document.getElementById('purgeButton').style.display = 'none';
+                } else {
+                    showAllRead();
                 }
             } else {
                 console.log('パージに失敗しました。');
             }
+        }
+
+        function showAllRead() {
+            const allReadElement = document.getElementById('allRead');
+            const container = document.querySelector('.container');
+            const rightEdgeArea = document.getElementById('rightEdgeArea');
+            const remainingFeedsIndicator = document.getElementById('remainingFeedsIndicator');
+            while (container.firstChild) {
+                container.removeChild(container.firstChild);
+            }
+            rightEdgeArea.style.display = 'none';
+            remainingFeedsIndicator.style.display = 'none';
+            allReadElement.style.display = 'block';
         }
 
         function updateRemainingFeedsIndicator() {
@@ -397,7 +554,6 @@
         }
 
         async function loadArticles(feedId) {
-            document.getElementById('purgeButton').style.display = 'block';
             const response = await fetch(`/api/load_articles?feed_id=${feedId}&exclude_starred=true`);
             const data = await response.json();
             const articleList = document.getElementById('articleList');
@@ -450,7 +606,7 @@
                 selectedIndex = -1;
             } else {
                 articleList.innerHTML = '';
-                document.getElementById('allRead').style.display = 'block';
+                showAllRead();
                 articleElements = [];
                 articlesData = [];
                 selectedIndex = -1;
@@ -496,6 +652,7 @@
             });
             articleItem.scrollIntoView({ behavior: 'auto', block: 'start' });
         }
+
         async function toggleStarred(articleId, starred, button) {
             const response = await fetch('/api/toggle_starred', {
                 method: 'POST',
@@ -509,14 +666,12 @@
                     articleElements[currentArticleIndex].dataset.starred = starred;
                 }
                 if (starred) {
-                    // スターが付けられた場合、記事を削除
                     if (currentSummaryElement) {
                         currentSummaryElement.remove();
                         currentSummaryElement = null;
                     }
                     articleElements[currentArticleIndex].remove();
                     articleElements.splice(currentArticleIndex, 1);
-                    articlesData.splice(currentArticleIndex, 1);
                     if (currentArticleIndex < selectedIndex) {
                         selectedIndex--;
                     }
@@ -530,14 +685,13 @@
             }
         }
 
-
         function scrollPage(direction) {
             window.scrollBy({
                 top: direction === 'up' ? -window.innerHeight + 100 : window.innerHeight - 100,
                 behavior: 'auto'
             });
         }
-        
+
         document.addEventListener('keydown', async (e) => {
             if (document.activeElement.tagName === 'INPUT') return;
             switch (e.key) {
@@ -570,10 +724,6 @@
                         const url = articlesData[selectedIndex].url;
                         window.open(url, '_blank');
                     }
-                    break;
-                case 'a':
-                    e.preventDefault();
-                    await executePurge();
                     break;
             }
         });
