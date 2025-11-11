@@ -73,7 +73,7 @@
         }
 
         #searchInput {
-            width: 100%;
+            width: 98%;
             padding: 10px;
             font-size: 16px;
             border: 1px solid var(--border-color);
@@ -154,15 +154,11 @@
             white-space: nowrap;
         }
 
-        .summary {
-            margin-top: 12px;
-            font-size: 16px;
-            color: var(--text-color);
-            line-height: 1.8;
-            padding: 12px;
-            background-color: var(--summary-bg);
-            border-radius: 4px;
-            border-left: 4px solid var(--summary-border);
+        .article-feed {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-left: auto;
+            white-space: nowrap;
         }
 
         h2 {
@@ -198,7 +194,6 @@
         let selectedIndex = -1;
         let articleElements = [];
         let articlesData = [];
-
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('searchInput').addEventListener('input', (e) => {
                 clearTimeout(searchTimeout);
@@ -213,7 +208,6 @@
                 }, 500);
             });
         });
-
         async function searchArticles(query) {
             try {
                 const response = await fetch(`/api/search_articles?query=${encodeURIComponent(query)}&token=${currentToken}`);
@@ -224,29 +218,24 @@
                 console.error('検索に失敗しました:', e);
             }
         }
-
         function renderArticles() {
             const articleList = document.getElementById('articleList');
             articleList.innerHTML = '';
             articleElements = [];
-
             if (articlesData.length === 0) {
                 document.getElementById('noResults').style.display = 'block';
                 return;
             } else {
                 document.getElementById('noResults').style.display = 'none';
             }
-
             articlesData.forEach((article, index) => {
                 const articleItem = document.createElement('li');
                 articleItem.className = `article-item ${article.is_read ? 'read' : 'unread'}`;
                 articleItem.dataset.index = index;
                 articleItem.dataset.articleId = article.id;
                 articleItem.dataset.starred = article.starred;
-
                 const headerDiv = document.createElement('div');
                 headerDiv.className = 'article-header';
-
                 const starButton = document.createElement('button');
                 starButton.className = `star-btn ${article.starred ? 'starred' : ''}`;
                 starButton.innerHTML = article.starred ? '★' : '☆';
@@ -255,45 +244,34 @@
                     const newStarred = !article.starred;
                     await toggleStarred(article.id, newStarred, starButton);
                 };
-
                 const titleDiv = document.createElement('div');
                 titleDiv.className = 'article-title';
-
                 const titleLink = document.createElement('a');
                 titleLink.href = article.url;
                 titleLink.target = '_blank';
                 titleLink.textContent = article.title;
-
                 const dateSpan = document.createElement('span');
                 dateSpan.className = 'article-date';
                 dateSpan.textContent = article.published_at ? new Date(article.published_at).toLocaleString() : '';
-
+                const feedSpan = document.createElement('span');
+                feedSpan.className = 'article-feed';
+                feedSpan.textContent = article.feed_name || '';
                 titleDiv.appendChild(titleLink);
                 headerDiv.appendChild(starButton);
                 headerDiv.appendChild(titleDiv);
                 headerDiv.appendChild(dateSpan);
-
+                headerDiv.appendChild(feedSpan);
                 articleItem.appendChild(headerDiv);
-
-                if (article.content) {
-                    const summaryDiv = document.createElement('div');
-                    summaryDiv.className = 'summary';
-                    summaryDiv.textContent = article.content;
-                    articleItem.appendChild(summaryDiv);
-                }
-
                 articleItem.onclick = (e) => {
                     if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON') {
                         selectedIndex = index;
                         updateSelectedItem();
                     }
                 };
-
                 articleList.appendChild(articleItem);
                 articleElements.push(articleItem);
             });
         }
-
         function updateSelectedItem() {
             articleElements.forEach((item, index) => {
                 if (index === selectedIndex) {
@@ -304,7 +282,6 @@
                 }
             });
         }
-
         async function toggleStarred(articleId, starred, button) {
             const response = await fetch('/api/toggle_starred', {
                 method: 'POST',
@@ -319,7 +296,6 @@
                 }
             }
         }
-
         document.addEventListener('keydown', (e) => {
             if (document.activeElement.tagName === 'INPUT') return;
             switch (e.key) {
