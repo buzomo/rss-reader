@@ -745,6 +745,55 @@ def search_articles():
     return jsonify({"articles": articles})
 
 
+@app.route("/api/sync_starred_to_bookmarks", methods=["POST"])
+def sync_starred_to_bookmarks():
+    # RSSリーダーのトークン
+    rss_token = request.cookies.get("token") or request.json.get("rss_token")
+    # ブックマークアプリのトークン
+    bookmark_token = request.json.get("bookmark_token")
+
+    if not rss_token or not bookmark_token:
+        return jsonify({"error": "Both RSS token and bookmark token are required"}), 403
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # お気に入り記事を取得
+    cur.execute(
+        """
+        SELECT url, title FROM articles_d4e5f6
+        WHERE starred = TRUE AND token = %s
+        AND url NOT IN (SELECT url FROM bookmarks WHERE token = %s)
+        """,
+        (rss_token, bookmark_token),
+    )
+
+    starred_articles = cur.fetchall()
+
+    if not starred_articles:
+        cur.close()
+        conn.close()
+        return jsonify({"status": "success", "synced": 0})
+
+    # ブックマークテーブルに挿入
+    for url, title in starred_articles:
+        cur.execute(
+            """
+            INSERT INTO bookmarks (url, title, token)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (url, token) DO NOTHING
+            """,
+            (url, title, bookmark_token),
+        )
+
+    conn.commit()
+    synced_count = cur.rowcount
+    cur.close()
+    conn.close()
+
+    return jsonify({"status": "success", "synced": synced_count})
+
+
 with app.app_context():
     init_db()
 
