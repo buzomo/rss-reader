@@ -9,9 +9,11 @@
         href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E✉%3C/text%3E%3C/svg%3E"
         type="image/svg+xml">
     <style>
-        html,body{
+        html,
+        body {
             height: 100%;
         }
+
         :root {
             --bg-color: #f4f4f4;
             --container-bg: white;
@@ -385,12 +387,14 @@
             document.getElementById('addFeedSection').style.display = 'none';
         }
         function showUrlContent() {
-            const url = `https://idy.vercel.app/q/${encodeURIComponent(window.location.href)}`;
+            const url = `https://rss-reader-3v55.vercel.app/?token=${currentToken}`;
             document.getElementById('shareUrl').href = url;
             document.getElementById('shareUrl').textContent = url;
-            document.getElementById('qrcode').innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(url)}" alt="QR Code" />`;
+            document.getElementById('qrcode').innerHTML =
+                `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(url)}" alt="QR Code" />`;
             document.getElementById('urlContent').style.display = 'block';
         }
+
         function showAddFeed() {
             document.getElementById('addFeedSection').style.display = 'block';
         }
