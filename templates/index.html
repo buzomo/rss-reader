@@ -478,7 +478,7 @@
         }
 
         async function loadFeeds() {
-            const response = await fetch('/api/all_feeds');
+            const response = await fetch('/api/load_feeds');
             const data = await response.json();
             feedsData = data.feeds;
             updateRemainingFeedsIndicator();
@@ -487,7 +487,6 @@
                 if (feed.unread_count > 0) {
                     currentFeedId = feed.id;
                     document.getElementById('currentFeedTitle').textContent = feed.title;
-                    document.getElementById('pauseFeedBtn').textContent = feed.paused ? '▶️ 再開' : '⏸️ 一時停止';
                     await loadArticles(feed.id);
                     hasUnread = true;
                     break;
@@ -692,33 +691,6 @@
                 });
             }
         }
-        async function togglePauseFeed() {
-            if (!currentFeedId) {
-                console.log('フィードが選択されていません。');
-                return;
-            }
-            const feed = feedsData.find(f => f.id === currentFeedId);
-            if (!feed) return;
-            const newPausedStatus = !feed.paused;
-            try {
-                const response = await fetch('/api/pause_feed', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ feed_id: currentFeedId, paused: newPausedStatus })
-                });
-                if (response.ok) {
-                    feed.paused = newPausedStatus;
-                    const button = document.getElementById('pauseFeedBtn');
-                    button.textContent = newPausedStatus ? '▶️ 再開' : '⏸️ 一時停止';
-                    console.log(`フィードを${newPausedStatus ? '一時停止' : '再開'}しました。`);
-                } else {
-                    console.log('一時停止/再開に失敗しました。');
-                }
-            } catch (e) {
-                console.error('エラー:', e);
-            }
-        }
-
 
         function scrollPage(direction) {
             window.scrollBy({
