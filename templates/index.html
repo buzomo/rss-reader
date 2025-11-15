@@ -760,7 +760,6 @@
 
             articleItem.scrollIntoView({ behavior: 'auto', block: 'start' });
         }
-
         async function toggleStarred(articleId, starred, button) {
             const response = await fetch('/api/toggle_starred', {
                 method: 'POST',
@@ -777,16 +776,22 @@
                 }
 
                 if (starred) {
-                    if (currentSummaryElement) {
+                    // currentSummaryElement が存在する場合のみ remove を呼び出す
+                    if (currentSummaryElement && currentSummaryElement.parentNode) {
                         currentSummaryElement.remove();
                         currentSummaryElement = null;
                     }
-                    articleElements[currentArticleIndex].remove();
-                    articleElements.splice(currentArticleIndex, 1);
-                    if (currentArticleIndex < selectedIndex) {
-                        selectedIndex--;
+
+                    // currentArticleIndex が有効な範囲内であることを確認
+                    if (currentArticleIndex >= 0 && currentArticleIndex < articleElements.length) {
+                        articleElements[currentArticleIndex].remove();
+                        articleElements.splice(currentArticleIndex, 1);
+
+                        if (currentArticleIndex < selectedIndex) {
+                            selectedIndex--;
+                        }
+                        currentArticleIndex = -1;
                     }
-                    currentArticleIndex = -1;
                 }
 
                 await fetch('/api/mark_as_read', {
@@ -856,7 +861,19 @@
                         window.open(url, '_blank');
                     }
                     break;
+                // 'a' キー押下で次のフィードに移動
+                case 'a':
+                    e.preventDefault();
+                    await purgeAndNextFeed();
+                    break;
             }
+        });
+        // body クリックで次のフィードに移動
+        document.body.addEventListener('click', async (e) => {
+            if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.closest('.modal')) {
+                return;
+            }
+            await purgeAndNextFeed();
         });
 
         document.addEventListener('DOMContentLoaded', () => {
