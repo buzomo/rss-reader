@@ -12,10 +12,11 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         .feed-group {
-            margin-bottom: 1rem;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 0.5rem;
+            margin-bottom: 0.5rem;
+            padding: 0.5rem;
+            border-radius: 0.25rem;
             cursor: pointer;
+            font-size: 0.9rem;
         }
 
         .feed-group:hover {
@@ -46,7 +47,7 @@
 
         .article-meta {
             color: #6c757d;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
         }
 
         .unstar-btn {
@@ -70,25 +71,37 @@
         }
 
         .feed-list li {
-            padding: 0.5rem;
+            padding: 0;
+        }
+
+        .feed-title {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .feed-url {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+
+        .badge {
+            font-size: 0.75rem;
         }
     </style>
 </head>
 
 <body>
-    <div class="container-fluid py-4">
-        <h1 class="mb-4">スターした記事</h1>
+    <div class="container-fluid py-3">
         <div class="row">
             <!-- 左ペイン: フィード一覧 -->
             <div class="col-md-4 pane border-end">
-                <h3>フィード一覧</h3>
                 <ul class="feed-list">
                     {% if starred_articles_by_feed %}
                     {% for feed_id, feed_info in starred_articles_by_feed.items() %}
                     <li class="feed-group" data-feed-id="{{ feed_id }}">
-                        <h5>{{ feed_info.feed_title }}</h5>
-                        <p class="text-muted small mb-0"><a href="{{ feed_info.feed_url }}" target="_blank"
-                                class="text-muted">{{ feed_info.feed_url }}</a></p>
+                        <div class="feed-title">{{ feed_info.feed_title }}</div>
+                        <div class="feed-url"><a href="{{ feed_info.feed_url }}" target="_blank">{{ feed_info.feed_url
+                                }}</a></div>
                         <span class="badge bg-secondary">{{ feed_info.articles|length }} 記事</span>
                     </li>
                     {% endfor %}
@@ -106,7 +119,6 @@
                     {% for feed_id, feed_info in starred_articles_by_feed.items() %}
                     <div class="feed-articles" data-feed-id="{{ feed_id }}" {% if loop.first %}style="display: block;"
                         {% else %}style="display: none;" {% endif %}>
-                        <h3>{{ feed_info.feed_title }}</h3>
                         {% for article in feed_info.articles %}
                         <div class="article-card">
                             <div class="d-flex justify-content-between">
@@ -146,14 +158,20 @@
             group.addEventListener('click', (e) => {
                 document.querySelectorAll('.feed-group').forEach(g => g.classList.remove('active'));
                 e.currentTarget.classList.add('active');
-
+                const feedId = e.currentTarget.dataset.feedId;
+                document.querySelectorAll('.feed-articles').forEach(container => {
+                    container.style.display = container.dataset.feedId === feedId ? 'block' : 'none';
+                });
+            });
+            group.addEventListener('mouseenter', (e) => {
+                document.querySelectorAll('.feed-group').forEach(g => g.classList.remove('active'));
+                e.currentTarget.classList.add('active');
                 const feedId = e.currentTarget.dataset.feedId;
                 document.querySelectorAll('.feed-articles').forEach(container => {
                     container.style.display = container.dataset.feedId === feedId ? 'block' : 'none';
                 });
             });
         });
-
         // スター解除ボタンのイベントリスナー
         document.querySelectorAll('.unstar-btn').forEach(button => {
             button.addEventListener('click', async (e) => {
