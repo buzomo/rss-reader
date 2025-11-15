@@ -50,6 +50,7 @@ def init_db():
             update_frequency INTEGER DEFAULT 0,
             last_checked TIMESTAMP,
             next_check TIMESTAMP,
+            paused BOOLEAN DEFAULT FALSE,
             UNIQUE (url, token)
         )
     """
@@ -319,6 +320,7 @@ def feeds_to_poll():
         SELECT id, url, title
         FROM feeds_a1b2c3
         WHERE token = %s
+        AND paused = FALSE
         AND (next_check IS NULL OR next_check <= NOW())
         ORDER BY priority DESC, update_frequency DESC, title ASC
         """,
@@ -366,6 +368,28 @@ def all_feeds():
         (token,),
     )
     feeds = [{"id": row[0], "url": row[1], "title": row[2]} for row in cur.fetchall()]
+    cur.close()
+    conn.close()
+    return jsonify({"feeds": feeds})
+
+
+@app.route("/api/all_feeds")
+def all_feeds():
+    token = request.cookies.get("token")
+    if not token:
+        return jsonify({"error": "Token not found"}), 403
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT id, url, title, paused FROM feeds_a1b2c3 WHERE token = %s ORDER BY priority ASC, title DESC
+        """,
+        (token,),
+    )
+    feeds = [
+        {"id": row[0], "url": row[1], "title": row[2], "paused": row[3]}
+        for row in cur.fetchall()
+    ]
     cur.close()
     conn.close()
     return jsonify({"feeds": feeds})
@@ -779,6 +803,31 @@ def sync_starred_to_bookmarks():
     cur.close()
     conn.close()
     return jsonify({"status": "success", "synced": synced_count})
+
+
+@app.route("/api/pause_feed", methods=["POST"])
+def pause_feed():
+    token = request.cookies.get("token")
+    if not token:
+        return jsonify({"error": "Token not found"}), 403
+    feed_id = request.json.get("feed_id")
+    paused = request.json.get("paused")
+    if not feed_id or paused is None:
+        return jsonify({"error": "Feed ID and paused status are required"}), 400
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        UPDATE feeds_a1b2c3
+        SET paused = %s
+        WHERE id = %s AND token = %s
+        """,
+        (paused, feed_id, token),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"status": "success"})
 
 
 with app.app_context():
