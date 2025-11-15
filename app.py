@@ -6,6 +6,8 @@ from flask import (
     make_response,
     redirect,
     url_for,
+    send_file,
+    Response,
 )
 import psycopg2
 import os
@@ -16,6 +18,8 @@ from dotenv import load_dotenv
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
+import xml.etree.ElementTree as ET
+import io
 
 load_dotenv()
 app = Flask(__name__)
@@ -35,7 +39,6 @@ def generate_token():
 def init_db():
     conn = get_db_connection()
     cur = conn.cursor()
-    # フィードテーブル
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS feeds_a1b2c3 (
@@ -51,7 +54,6 @@ def init_db():
         )
     """
     )
-    # 記事テーブル
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS articles_d4e5f6 (
@@ -80,7 +82,6 @@ def fetch_full_content(url):
         }
         response = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(response.text, "html.parser")
-        # 一般的な記事本文のセレクター
         selectors = [
             "article",
             ".article-body",
@@ -95,7 +96,6 @@ def fetch_full_content(url):
             element = soup.select_one(selector)
             if element:
                 return element.get_text(separator="\n", strip=True)
-        # セレクターが見つからない場合は全体から抽出
         return soup.get_text(separator="\n", strip=True)
     except Exception as e:
         print(f"Error fetching full content: {e}")
@@ -109,11 +109,9 @@ def extract_feed_url_from_html(html_url):
         }
         response = requests.get(html_url, headers=headers, timeout=10)
         soup = BeautifulSoup(response.text, "html.parser")
-        # RSSフィードのリンクを探す
         feed_link = soup.find("link", {"type": "application/rss+xml"})
         if feed_link and feed_link.get("href"):
             return feed_link.get("href")
-        # atomフィードも探す
         feed_link = soup.find("link", {"type": "application/atom+xml"})
         if feed_link and feed_link.get("href"):
             return feed_link.get("href")
@@ -176,6 +174,40 @@ def find():
     return resp
 
 
+@app.route("/api/export_opml")
+def export_opml():
+    token = request.cookies.get("token")
+    if not token:
+        return jsonify({"error": "Token not found"}), 403
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT title, url FROM feeds_a1b2c3 WHERE token = %s ORDER BY title ASC
+        """,
+        (token,),
+    )
+    feeds = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    opml = ET.Element("opml", version="1.0")
+    head = ET.SubElement(opml, "head")
+    title = ET.SubElement(head, "title")
+    title.text = "RSS Reader Export"
+    body = ET.SubElement(opml, "body")
+    for feed in feeds:
+        outline = ET.SubElement(
+            body, "outline", text=feed[0], type="rss", xmlUrl=feed[1]
+        )
+    opml_str = ET.tostring(opml, encoding="utf-8").decode("utf-8")
+    return Response(
+        opml_str,
+        mimetype="text/xml",
+        headers={"Content-Disposition": "attachment;filename=feeds.opml"},
+    )
+
+
 @app.route("/api/add_feed", methods=["POST"])
 def add_feed():
     token = request.cookies.get("token")
@@ -184,13 +216,11 @@ def add_feed():
     feed_url = request.json.get("url")
     if not feed_url:
         return jsonify({"error": "URL is required"}), 400
-    # フィードをパースしてタイトルを取得
     feed = feedparser.parse(feed_url)
     feed_title = feed.feed.get("title", "Untitled Feed")
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        # フィードを登録（ユニーク制約により重複は自動的にエラーになる）
         cur.execute(
             """
             INSERT INTO feeds_a1b2c3 (url, title, token)
@@ -200,7 +230,6 @@ def add_feed():
         )
         conn.commit()
     except Exception as e:
-        # 重複エラーの場合
         if "unique_feed_url" in str(e):
             return jsonify({"error": "Feed already exists"}), 400
         else:
@@ -221,7 +250,6 @@ def update_feed():
         return jsonify({"error": "Feed ID is required"}), 400
     conn = get_db_connection()
     cur = conn.cursor()
-    # フィードURLを取得
     cur.execute(
         "SELECT url FROM feeds_a1b2c3 WHERE id = %s AND token = %s", (feed_id, token)
     )
@@ -231,17 +259,13 @@ def update_feed():
         conn.close()
         return jsonify({"error": "Feed not found"}), 404
     feed_url = result[0]
-    # フィードをパースして記事を取得
     feed = feedparser.parse(feed_url)
     new_articles = 0
     for entry in feed.entries:
-        # 公開日時をパース
         published_at = None
         if hasattr(entry, "published_parsed"):
             published_at = datetime(*entry.published_parsed[:6])
-        # 記事を保存（新着記事は unlisted = FALSE で追加）
         content = entry.description if hasattr(entry, "description") else entry.title
-        # 記事を保存
         cur.execute(
             """
             INSERT INTO articles_d4e5f6 (feed_id, title, url, content, published_at, token)
@@ -251,7 +275,6 @@ def update_feed():
             (feed_id, entry.title, entry.link, content, published_at, token),
         )
         new_articles += cur.rowcount
-    # フィードの更新頻度と最後にチェックした時間を更新
     cur.execute(
         """
         UPDATE feeds_a1b2c3
@@ -260,9 +283,7 @@ def update_feed():
         """,
         (new_articles, feed_id, token),
     )
-    # 更新頻度に基づいて次回のチェック時間を設定
     if new_articles > 0:
-        # 更新頻度に基づいて次回のチェック時間を設定
         cur.execute(
             """
             UPDATE feeds_a1b2c3
@@ -272,7 +293,6 @@ def update_feed():
             (feed_id, token),
         )
     else:
-        # 更新がない場合は次回のチェック時間を延長
         cur.execute(
             """
             UPDATE feeds_a1b2c3
@@ -294,7 +314,6 @@ def feeds_to_poll():
         return jsonify({"error": "Token not found"}), 403
     conn = get_db_connection()
     cur = conn.cursor()
-    # 次回のチェック時間が現在時刻より前のフィードを取得
     cur.execute(
         """
         SELECT id, url, title
@@ -318,7 +337,6 @@ def all_feeds_with_frequency():
         return jsonify({"error": "Token not found"}), 403
     conn = get_db_connection()
     cur = conn.cursor()
-    # 全てのフィードとその更新頻度を取得
     cur.execute(
         """
         SELECT id, url, title, update_frequency FROM feeds_a1b2c3 WHERE token = %s ORDER BY update_frequency DESC, title ASC
@@ -341,7 +359,6 @@ def all_feeds():
         return jsonify({"error": "Token not found"}), 403
     conn = get_db_connection()
     cur = conn.cursor()
-    # 全てのフィードを取得（ソート順を逆にする）
     cur.execute(
         """
         SELECT id, url, title FROM feeds_a1b2c3 WHERE token = %s ORDER BY priority ASC, title DESC
@@ -361,7 +378,6 @@ def load_feeds():
         return jsonify({"error": "Token not found"}), 403
     conn = get_db_connection()
     cur = conn.cursor()
-    # 新しい未読があるフィードだけを表示（ソート順を逆にする）
     cur.execute(
         """
         SELECT f.id, f.url, f.title,
@@ -395,7 +411,6 @@ def fetch_articles():
         return jsonify({"error": "Feed ID is required"}), 400
     conn = get_db_connection()
     cur = conn.cursor()
-    # フィードURLを取得
     cur.execute(
         "SELECT url FROM feeds_a1b2c3 WHERE id = %s AND token = %s", (feed_id, token)
     )
@@ -405,16 +420,12 @@ def fetch_articles():
         conn.close()
         return jsonify({"error": "Feed not found"}), 404
     feed_url = result[0]
-    # フィードをパースして記事を取得
     feed = feedparser.parse(feed_url)
     for entry in feed.entries:
-        # 公開日時をパース
         published_at = None
         if hasattr(entry, "published_parsed"):
             published_at = datetime(*entry.published_parsed[:6])
-        # 記事を保存（新着記事は unlisted = FALSE で追加）
         content = entry.description if hasattr(entry, "description") else entry.title
-        # 記事を保存
         cur.execute(
             """
             INSERT INTO articles_d4e5f6 (feed_id, title, url, content, published_at, token)
@@ -441,7 +452,6 @@ def load_articles():
             return jsonify({"error": "Feed ID is required"}), 400
         conn = get_db_connection()
         cur = conn.cursor()
-        # スター記事と既読記事を除外するかどうか
         if exclude_starred:
             cur.execute(
                 """
@@ -462,11 +472,11 @@ def load_articles():
                 WHERE a.feed_id = %s AND a.token = %s
                 ORDER BY
                     CASE
-                        WHEN a.is_read = FALSE THEN 0  -- 未読が最優先
-                        WHEN a.is_read = TRUE AND a.starred = FALSE THEN 1  -- 既読が次
-                        WHEN a.starred = TRUE THEN 2  -- スターが最後
+                        WHEN a.is_read = FALSE THEN 0
+                        WHEN a.is_read = TRUE AND a.starred = FALSE THEN 1
+                        WHEN a.starred = TRUE THEN 2
                     END,
-                    a.published_at DESC  -- それぞれのグループ内で新しい順
+                    a.published_at DESC
                 """,
                 (feed_id, token),
             )
@@ -504,7 +514,6 @@ def api_fetch_full_content():
         return jsonify({"error": "Article ID is required"}), 400
     conn = get_db_connection()
     cur = conn.cursor()
-    # 記事のURLを取得
     cur.execute(
         "SELECT url FROM articles_d4e5f6 WHERE id = %s AND token = %s",
         (article_id, token),
@@ -517,7 +526,6 @@ def api_fetch_full_content():
     article_url = result[0]
     full_content = fetch_full_content(article_url)
     if full_content:
-        # 全文をデータベースに更新
         cur.execute(
             """
             UPDATE articles_d4e5f6
@@ -563,7 +571,6 @@ def mark_starred_as_read():
         return jsonify({"error": "Token not found"}), 403
     conn = get_db_connection()
     cur = conn.cursor()
-    # スターした記事を全て既読にする
     cur.execute(
         """
         UPDATE articles_d4e5f6
@@ -587,7 +594,6 @@ def toggle_starred():
     new_starred = request.json.get("starred")
     conn = get_db_connection()
     cur = conn.cursor()
-    # お気に入り状態を更新し、スターした場合は既読にする
     cur.execute(
         """
         UPDATE articles_d4e5f6
@@ -610,21 +616,17 @@ def subscribe_feed():
     url = request.json.get("url")
     if not url:
         return jsonify({"error": "URL is required"}), 400
-    # URLからホスト名を取得
     parsed_url = urlparse(url)
     if not parsed_url.hostname:
         return jsonify({"error": "Invalid URL"}), 400
-    # HTMLからフィードURLを抽出
     feed_url = extract_feed_url_from_html(url)
     if not feed_url:
         return jsonify({"error": "No feed found on the page"}), 404
-    # フィードをパースしてタイトルを取得
     feed = feedparser.parse(feed_url)
     if not feed.feed.get("title"):
         return jsonify({"error": "Invalid feed"}), 400
     conn = get_db_connection()
     cur = conn.cursor()
-    # フィードが既に登録されているか確認
     cur.execute(
         """
         SELECT id FROM feeds_a1b2c3 WHERE url = %s AND token = %s
@@ -635,7 +637,6 @@ def subscribe_feed():
         cur.close()
         conn.close()
         return jsonify({"error": "Feed already exists"}), 400
-    # フィードを登録
     cur.execute(
         """
         INSERT INTO feeds_a1b2c3 (url, title, token)
@@ -692,7 +693,6 @@ def purge_feed():
         return jsonify({"error": "Feed ID is required"}), 400
     conn = get_db_connection()
     cur = conn.cursor()
-    # スター以外の記事を既読にする
     cur.execute(
         """
         UPDATE articles_d4e5f6
@@ -713,7 +713,6 @@ def search_articles():
     query = request.args.get("query")
     if not token or not query:
         return jsonify({"error": "Token and query are required"}), 400
-
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute(
@@ -747,18 +746,12 @@ def search_articles():
 
 @app.route("/api/sync_starred_to_bookmarks", methods=["POST"])
 def sync_starred_to_bookmarks():
-    # RSSリーダーのトークン
     rss_token = request.cookies.get("token") or request.json.get("rss_token")
-    # ブックマークアプリのトークン
     bookmark_token = request.json.get("bookmark_token")
-
     if not rss_token or not bookmark_token:
         return jsonify({"error": "Both RSS token and bookmark token are required"}), 403
-
     conn = get_db_connection()
     cur = conn.cursor()
-
-    # お気に入り記事を取得
     cur.execute(
         """
         SELECT url, title FROM articles_d4e5f6
@@ -767,15 +760,11 @@ def sync_starred_to_bookmarks():
         """,
         (rss_token, bookmark_token),
     )
-
     starred_articles = cur.fetchall()
-
     if not starred_articles:
         cur.close()
         conn.close()
         return jsonify({"status": "success", "synced": 0})
-
-    # ブックマークテーブルに挿入
     for url, title in starred_articles:
         cur.execute(
             """
@@ -785,12 +774,10 @@ def sync_starred_to_bookmarks():
             """,
             (url, title, bookmark_token),
         )
-
     conn.commit()
     synced_count = cur.rowcount
     cur.close()
     conn.close()
-
     return jsonify({"status": "success", "synced": synced_count})
 
 

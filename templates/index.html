@@ -209,15 +209,16 @@
 
         #remainingFeedsIndicator {
             position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #6daea733;
-            padding: 10px 20px;
-            border-radius: 10px;
-            font-size: 300px;
+            bottom: 20px;
+            left: 20px;
+            color: var(--text-secondary);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 14px;
             z-index: 1000;
             display: none;
+            background-color: var(--container-bg);
+            border: 1px solid var(--border-color);
         }
 
         /* モーダルスタイル */
@@ -340,6 +341,7 @@
                 <button id="addFeedBtn" class="modal-button" onclick="showAddFeed()">📥 フィードの追加</button>
                 <button id="importOpmlBtn" class="modal-button"
                     onclick="document.getElementById('fileInput').click()">📄 OPML取り込み</button>
+                <button id="exportOpmlBtn" class="modal-button" onclick="exportOpml()">📤 OPMLエクスポート</button>
                 <button id="findEntriesBtn" class="modal-button" onclick="window.location.href='/find'">🔍
                     過去のエントリを検索...</button>
             </div>
@@ -364,10 +366,12 @@
         let articlesData = [];
         let selectedIndex = -1;
         let feedsData = [];
+
         document.addEventListener('contextmenu', function (e) {
             e.preventDefault();
             openModal();
         });
+
         document.getElementById('fileInput').addEventListener('change', function (e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -378,14 +382,17 @@
             importOPML(file);
             e.target.value = '';
         });
+
         function openModal() {
             document.getElementById('contextModal').style.display = 'block';
         }
+
         function closeModal() {
             document.getElementById('contextModal').style.display = 'none';
             document.getElementById('urlContent').style.display = 'none';
             document.getElementById('addFeedSection').style.display = 'none';
         }
+
         function showUrlContent() {
             const url = `https://rss-reader-3v55.vercel.app/?token=${currentToken}`;
             document.getElementById('shareUrl').href = url;
@@ -398,6 +405,7 @@
         function showAddFeed() {
             document.getElementById('addFeedSection').style.display = 'block';
         }
+
         async function addFeed() {
             const feedUrl = document.getElementById('feedInput').value.trim();
             if (!feedUrl) return;
@@ -415,6 +423,11 @@
                 console.error('フィードの追加に失敗しました:', e);
             }
         }
+
+        async function exportOpml() {
+            window.location.href = '/api/export_opml';
+        }
+
         async function importOPML(file) {
             const reader = new FileReader();
             reader.onload = async function (e) {
@@ -430,6 +443,7 @@
             };
             reader.readAsText(file);
         }
+
         function parseOPML(opmlText) {
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(opmlText, "text/xml");
@@ -446,6 +460,7 @@
             }
             return feeds;
         }
+
         async function subscribeFeeds(feeds) {
             for (const feed of feeds) {
                 try {
@@ -461,6 +476,7 @@
                 }
             }
         }
+
         async function loadFeeds() {
             const response = await fetch('/api/load_feeds');
             const data = await response.json();
@@ -480,6 +496,7 @@
                 showAllRead();
             }
         }
+
         async function purgeAndNextFeed() {
             if (!currentFeedId) {
                 console.log('フィードが選択されていません。');
@@ -522,23 +539,26 @@
                 console.log('パージに失敗しました。');
             }
         }
+
         function showAllRead() {
             document.getElementById('articlesSection').style.display = 'none';
             document.getElementById('allRead').style.display = 'block';
             document.getElementById('rightEdgeArea').style.display = 'none';
             document.getElementById('remainingFeedsIndicator').style.display = 'none';
         }
+
         function updateRemainingFeedsIndicator() {
             const unreadFeeds = feedsData.filter(feed => feed.unread_count > 0);
             const remainingCount = unreadFeeds.length;
             const indicator = document.getElementById('remainingFeedsIndicator');
             if (remainingCount > 0) {
-                indicator.textContent = remainingCount;
+                indicator.textContent = `未読フィード: ${remainingCount}`;
                 indicator.style.display = 'block';
             } else {
                 indicator.style.display = 'none';
             }
         }
+
         async function loadArticles(feedId) {
             const response = await fetch(`/api/load_articles?feed_id=${feedId}&exclude_starred=true`);
             const data = await response.json();
@@ -599,6 +619,7 @@
                 selectedIndex = -1;
             }
         }
+
         function updateSelectedItem() {
             articleElements.forEach((item, index) => {
                 if (index === selectedIndex) {
@@ -609,6 +630,7 @@
                 }
             });
         }
+
         async function toggleSummary(articleItem, articleId, content, url, index) {
             let summary = articleItem.querySelector('.summary');
             if (summary && currentSummaryElement === summary) {
@@ -637,6 +659,7 @@
             });
             articleItem.scrollIntoView({ behavior: 'auto', block: 'start' });
         }
+
         async function toggleStarred(articleId, starred, button) {
             const response = await fetch('/api/toggle_starred', {
                 method: 'POST',
@@ -668,12 +691,14 @@
                 });
             }
         }
+
         function scrollPage(direction) {
             window.scrollBy({
                 top: direction === 'up' ? -window.innerHeight + 100 : window.innerHeight - 100,
                 behavior: 'auto'
             });
         }
+
         document.addEventListener('keydown', async (e) => {
             if (document.activeElement.tagName === 'INPUT') return;
             switch (e.key) {
@@ -709,6 +734,7 @@
                     break;
             }
         });
+
         document.addEventListener('DOMContentLoaded', () => {
             loadFeeds();
         });
