@@ -9,7 +9,7 @@
         href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E✉%3C/text%3E%3C/svg%3E"
         type="image/svg+xml">
     <style>
-        /* 省略（スタイルは変更なし） */
+        /* スタイルは変更なし */
         html,
         body {
             height: 100%;
@@ -360,6 +360,7 @@
         </div>
     </div>
     <script>
+        // グローバル変数
         let currentToken = "vpMmY6Q5ZuAVtr0k8JMLoFCkD0QjrPURfUnZs88t4kk";
         let currentFeedId = null;
         let currentSummaryElement = null;
@@ -370,13 +371,24 @@
         let feedsData = [];
         let nextFeedId = null;
         let nextFeedArticles = [];
+        let isLoading = false;
+        let isPrefetching = false;
 
-        document.addEventListener('contextmenu', function (e) {
+        // DOM要素のキャッシュ
+        const articleList = document.getElementById('articleList');
+        const articlesSection = document.getElementById('articlesSection');
+        const allRead = document.getElementById('allRead');
+        const rightEdgeArea = document.getElementById('rightEdgeArea');
+        const remainingFeedsIndicator = document.getElementById('remainingFeedsIndicator');
+        const currentFeedTitle = document.getElementById('currentFeedTitle');
+
+        // イベントリスナー
+        document.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             openModal();
         });
 
-        document.getElementById('fileInput').addEventListener('change', function (e) {
+        document.getElementById('fileInput').addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
             if (!file.name.match(/\.(opml|xml)$/i)) {
@@ -387,6 +399,40 @@
             e.target.value = '';
         });
 
+        document.addEventListener('keydown', async (e) => {
+            if (document.activeElement.tagName === 'INPUT') return;
+            switch (e.key) {
+                case 'j':
+                    e.preventDefault();
+                    navigateArticles(1);
+                    break;
+                case 'k':
+                    e.preventDefault();
+                    navigateArticles(-1);
+                    break;
+                case 's':
+                    e.preventDefault();
+                    toggleStarredForSelected();
+                    break;
+                case 'o':
+                    e.preventDefault();
+                    openSelectedArticle();
+                    break;
+                case 'a':
+                    e.preventDefault();
+                    await purgeAndNextFeed();
+                    break;
+            }
+        });
+
+        document.body.addEventListener('click', async (e) => {
+            if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.closest('.modal')) {
+                return;
+            }
+            await purgeAndNextFeed();
+        });
+
+        // 関数定義
         function openModal() {
             document.getElementById('contextModal').style.display = 'block';
         }
@@ -416,12 +462,9 @@
             try {
                 await fetch('/api/add_feed', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url: feedUrl })
                 });
-                console.log('フィードを追加しました。');
                 location.reload();
             } catch (e) {
                 console.error('フィードの追加に失敗しました:', e);
@@ -434,7 +477,7 @@
 
         async function importOPML(file) {
             const reader = new FileReader();
-            reader.onload = async function (e) {
+            reader.onload = async (e) => {
                 const opmlText = e.target.result;
                 const feeds = parseOPML(opmlText);
                 if (feeds.length === 0) {
@@ -442,7 +485,6 @@
                     return;
                 }
                 await subscribeFeeds(feeds);
-                console.log(`${feeds.length}件のフィードを購読しました。`);
                 location.reload();
             };
             reader.readAsText(file);
@@ -470,9 +512,7 @@
                 try {
                     await fetch('/api/add_feed', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ url: feed.url })
                     });
                 } catch (e) {
@@ -482,187 +522,84 @@
         }
 
         async function loadFeeds() {
-            const response = await fetch('/api/load_feeds');
-            const data = await response.json();
-            feedsData = data.feeds;
-            updateRemainingFeedsIndicator();
-
-            let hasUnread = false;
-            for (const feed of feedsData) {
-                if (feed.unread_count > 0) {
-                    currentFeedId = feed.id;
-                    document.getElementById('currentFeedTitle').textContent = feed.title;
-                    await loadArticles(feed.id);
-                    hasUnread = true;
-                    break;
-                }
-            }
-            if (!hasUnread) {
-                showAllRead();
+            try {
+                const response = await fetch('/api/load_feeds');
+                const data = await response.json();
+                feedsData = data.feeds;
+                updateRemainingFeedsIndicator();
+                await loadNextUnreadFeed();
+            } catch (e) {
+                console.error('フィードの読み込みに失敗しました:', e);
             }
         }
 
+        async function loadNextUnreadFeed() {
+            if (isLoading) return;
+            isLoading = true;
+
+            for (const feed of feedsData) {
+                if (feed.unread_count > 0) {
+                    currentFeedId = feed.id;
+                    currentFeedTitle.textContent = feed.title;
+                    await loadArticles(feed.id);
+                    isLoading = false;
+                    return;
+                }
+            }
+
+            showAllRead();
+            isLoading = false;
+        }
+
         async function prefetchNextFeed() {
-            if (!currentFeedId) return;
+            if (isPrefetching || !currentFeedId) return;
+            isPrefetching = true;
 
             const currentFeedIndex = feedsData.findIndex(feed => feed.id === currentFeedId);
             for (let i = currentFeedIndex + 1; i < feedsData.length; i++) {
                 if (feedsData[i].unread_count > 0) {
                     nextFeedId = feedsData[i].id;
-                    const response = await fetch(`/api/load_articles?feed_id=${nextFeedId}&exclude_starred=true`);
-                    const data = await response.json();
-                    nextFeedArticles = data.articles || [];
-                    break;
+                    try {
+                        const response = await fetch(`/api/load_articles?feed_id=${nextFeedId}&exclude_starred=true`);
+                        const data = await response.json();
+                        nextFeedArticles = data.articles || [];
+                        break;
+                    } catch (e) {
+                        console.error('次のフィードのプリフェッチに失敗しました:', e);
+                    }
                 }
             }
+            isPrefetching = false;
         }
 
         async function loadArticles(feedId) {
-            const response = await fetch(`/api/load_articles?feed_id=${feedId}&exclude_starred=true`);
-            const data = await response.json();
-            articlesData = data.articles || [];
-
-            const articleList = document.getElementById('articleList');
-            articleList.innerHTML = '';
-            articleElements = [];
-
-            if (articlesData.length > 0) {
-                document.getElementById('allRead').style.display = 'none';
-                document.getElementById('articlesSection').style.display = 'block';
-
-                articlesData.forEach((article, index) => {
-                    const articleItem = document.createElement('li');
-                    articleItem.className = `article-item ${article.is_read ? 'read' : 'unread'}`;
-                    articleItem.dataset.index = index;
-                    articleItem.dataset.articleId = article.id;
-                    articleItem.dataset.starred = article.starred;
-
-                    const headerDiv = document.createElement('div');
-                    headerDiv.className = 'article-header';
-
-                    const starButton = document.createElement('button');
-                    starButton.className = `star-btn ${article.starred ? 'starred' : ''}`;
-                    starButton.innerHTML = article.starred ? '★' : '☆';
-                    starButton.onclick = async (e) => {
-                        e.stopPropagation();
-                        const newStarred = !article.starred;
-                        await toggleStarred(article.id, newStarred, starButton);
-                    };
-
-                    const titleDiv = document.createElement('div');
-                    titleDiv.className = 'article-title';
-
-                    const titleLink = document.createElement('a');
-                    titleLink.href = article.url;
-                    titleLink.target = '_blank';
-                    titleLink.textContent = article.title;
-
-                    const dateSpan = document.createElement('span');
-                    dateSpan.className = 'article-date';
-                    dateSpan.textContent = article.published_at ? new Date(article.published_at).toLocaleString() : '';
-
-                    titleDiv.appendChild(titleLink);
-                    headerDiv.appendChild(starButton);
-                    headerDiv.appendChild(titleDiv);
-                    headerDiv.appendChild(dateSpan);
-
-                    articleItem.appendChild(headerDiv);
-
-                    articleItem.onclick = (e) => {
-                        if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON') {
-                            selectedIndex = index;
-                            updateSelectedItem();
-                            toggleSummary(articleItem, article.id, article.content, article.url, index);
-                        }
-                    };
-
-                    articleList.appendChild(articleItem);
-                    articleElements.push(articleItem);
-                });
-
-                currentArticleIndex = -1;
-                selectedIndex = -1;
-
-                // 次のフィードをプリフェッチ
+            try {
+                const response = await fetch(`/api/load_articles?feed_id=${feedId}&exclude_starred=true`);
+                const data = await response.json();
+                articlesData = data.articles || [];
+                renderArticles();
                 prefetchNextFeed();
-            } else {
-                articleList.innerHTML = '';
-                showAllRead();
-                articleElements = [];
-                articlesData = [];
-                selectedIndex = -1;
+            } catch (e) {
+                console.error('記事の読み込みに失敗しました:', e);
             }
         }
 
-        async function purgeAndNextFeed() {
-            if (!currentFeedId) {
-                console.log('フィードが選択されていません。');
+        function renderArticles() {
+            articleList.innerHTML = '';
+            articleElements = [];
+
+            if (articlesData.length === 0) {
+                showAllRead();
                 return;
             }
 
-            const purgeResponse = await fetch('/api/purge_feed', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ feed_id: currentFeedId })
-            });
+            articlesSection.style.display = 'block';
+            allRead.style.display = 'none';
+            rightEdgeArea.style.display = 'block';
 
-            if (purgeResponse.ok) {
-                const response = await fetch('/api/load_feeds');
-                const data = await response.json();
-                feedsData = data.feeds;
-                updateRemainingFeedsIndicator();
+            const fragment = document.createDocumentFragment();
 
-                if (nextFeedId && nextFeedArticles.length > 0) {
-                    currentFeedId = nextFeedId;
-                    const nextFeed = feedsData.find(feed => feed.id === nextFeedId);
-                    if (nextFeed) {
-                        document.getElementById('currentFeedTitle').textContent = nextFeed.title;
-                        articlesData = nextFeedArticles;
-                        renderArticles(articlesData);
-                        nextFeedId = null;
-                        nextFeedArticles = [];
-                        prefetchNextFeed();
-                        return;
-                    }
-                }
-
-                let nextFeed = null;
-                const currentFeedIndex = feedsData.findIndex(feed => feed.id === currentFeedId);
-
-                for (let i = currentFeedIndex + 1; i < feedsData.length; i++) {
-                    if (feedsData[i].unread_count > 0) {
-                        nextFeed = feedsData[i];
-                        break;
-                    }
-                }
-
-                if (!nextFeed) {
-                    for (let i = 0; i < currentFeedIndex; i++) {
-                        if (feedsData[i].unread_count > 0) {
-                            nextFeed = feedsData[i];
-                            break;
-                        }
-                    }
-                }
-
-                if (nextFeed) {
-                    currentFeedId = nextFeed.id;
-                    document.getElementById('currentFeedTitle').textContent = nextFeed.title;
-                    await loadArticles(nextFeed.id);
-                } else {
-                    showAllRead();
-                }
-            } else {
-                console.log('パージに失敗しました。');
-            }
-        }
-
-        function renderArticles(articles) {
-            const articleList = document.getElementById('articleList');
-            articleList.innerHTML = '';
-            articleElements = [];
-
-            articles.forEach((article, index) => {
+            articlesData.forEach((article, index) => {
                 const articleItem = document.createElement('li');
                 articleItem.className = `article-item ${article.is_read ? 'read' : 'unread'}`;
                 articleItem.dataset.index = index;
@@ -675,10 +612,9 @@
                 const starButton = document.createElement('button');
                 starButton.className = `star-btn ${article.starred ? 'starred' : ''}`;
                 starButton.innerHTML = article.starred ? '★' : '☆';
-                starButton.onclick = async (e) => {
+                starButton.onclick = (e) => {
                     e.stopPropagation();
-                    const newStarred = !article.starred;
-                    await toggleStarred(article.id, newStarred, starButton);
+                    toggleStarred(article.id, !article.starred, starButton, index);
                 };
 
                 const titleDiv = document.createElement('div');
@@ -699,21 +635,34 @@
                 headerDiv.appendChild(dateSpan);
 
                 articleItem.appendChild(headerDiv);
-
                 articleItem.onclick = (e) => {
                     if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON') {
                         selectedIndex = index;
                         updateSelectedItem();
-                        toggleSummary(articleItem, article.id, article.content, article.url, index);
+                        showSummary(articleItem, article.id, article.content, article.url);
                     }
                 };
 
-                articleList.appendChild(articleItem);
+                fragment.appendChild(articleItem);
                 articleElements.push(articleItem);
             });
 
+            articleList.appendChild(fragment);
             currentArticleIndex = -1;
             selectedIndex = -1;
+        }
+
+        function navigateArticles(direction) {
+            if (articleElements.length === 0) return;
+
+            const newIndex = selectedIndex + direction;
+            if (newIndex >= 0 && newIndex < articleElements.length) {
+                selectedIndex = newIndex;
+                updateSelectedItem();
+                const article = articlesData[selectedIndex];
+                const articleItem = articleElements[selectedIndex];
+                showSummary(articleItem, article.id, article.content, article.url);
+            }
         }
 
         function updateSelectedItem() {
@@ -727,78 +676,131 @@
             });
         }
 
-        async function toggleSummary(articleItem, articleId, content, url, index) {
-            let summary = articleItem.querySelector('.summary');
-            if (summary && currentSummaryElement === summary) {
-                return;
-            }
+        async function showSummary(articleItem, articleId, content, url) {
             if (currentSummaryElement) {
                 currentSummaryElement.remove();
+                currentSummaryElement = null;
             }
 
-            const response = await fetch('/api/fetch_full_content', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ article_id: articleId })
-            });
-            const data = await response.json();
-            const fullContent = data.content || content;
+            try {
+                const response = await fetch('/api/fetch_full_content', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ article_id: articleId })
+                });
+                const data = await response.json();
+                const fullContent = data.content || content;
 
-            const summaryDiv = document.createElement('div');
-            summaryDiv.className = 'summary';
-            summaryDiv.innerHTML = `<br><br>${fullContent}`;
+                const summaryDiv = document.createElement('div');
+                summaryDiv.className = 'summary';
+                summaryDiv.innerHTML = `<br><br>${fullContent}`;
+                articleItem.appendChild(summaryDiv);
+                currentSummaryElement = summaryDiv;
 
-            articleItem.appendChild(summaryDiv);
-            currentSummaryElement = summaryDiv;
-            currentArticleIndex = index;
-
-            await fetch('/api/mark_as_read', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ article_id: articleId })
-            });
-
-            articleItem.scrollIntoView({ behavior: 'auto', block: 'start' });
+                await markAsRead(articleId);
+            } catch (e) {
+                console.error('記事の詳細取得に失敗しました:', e);
+            }
         }
-        async function toggleStarred(articleId, starred, button) {
-            const response = await fetch('/api/toggle_starred', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: articleId, starred: starred })
-            });
 
-            if (response.ok) {
-                button.className = `star-btn ${starred ? 'starred' : ''}`;
-                button.innerHTML = starred ? '★' : '☆';
+        async function toggleStarred(articleId, starred, button, index) {
+            try {
+                const response = await fetch('/api/toggle_starred', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: articleId, starred: starred })
+                });
 
-                if (articleElements[currentArticleIndex]) {
-                    articleElements[currentArticleIndex].dataset.starred = starred;
-                }
+                if (response.ok) {
+                    button.className = `star-btn ${starred ? 'starred' : ''}`;
+                    button.innerHTML = starred ? '★' : '☆';
+                    articleElements[index].dataset.starred = starred;
 
-                if (starred) {
-                    // currentSummaryElement が存在する場合のみ remove を呼び出す
-                    if (currentSummaryElement && currentSummaryElement.parentNode) {
-                        currentSummaryElement.remove();
-                        currentSummaryElement = null;
-                    }
+                    if (starred) {
+                        if (currentSummaryElement) {
+                            currentSummaryElement.remove();
+                            currentSummaryElement = null;
+                        }
+                        articleElements[index].remove();
+                        articleElements.splice(index, 1);
+                        articlesData.splice(index, 1);
 
-                    // currentArticleIndex が有効な範囲内であることを確認
-                    if (currentArticleIndex >= 0 && currentArticleIndex < articleElements.length) {
-                        articleElements[currentArticleIndex].remove();
-                        articleElements.splice(currentArticleIndex, 1);
-
-                        if (currentArticleIndex < selectedIndex) {
+                        if (selectedIndex >= index) {
                             selectedIndex--;
                         }
-                        currentArticleIndex = -1;
+                        if (selectedIndex === -1 && articleElements.length > 0) {
+                            selectedIndex = 0;
+                            updateSelectedItem();
+                        }
+                        await markAsRead(articleId);
                     }
                 }
+            } catch (e) {
+                console.error('スターのトグルに失敗しました:', e);
+            }
+        }
 
+        async function toggleStarredForSelected() {
+            if (selectedIndex >= 0 && selectedIndex < articleElements.length) {
+                const articleId = articleElements[selectedIndex].dataset.articleId;
+                const isStarred = articleElements[selectedIndex].dataset.starred === 'true';
+                const starButton = articleElements[selectedIndex].querySelector('.star-btn');
+                await toggleStarred(articleId, !isStarred, starButton, selectedIndex);
+            }
+        }
+
+        function openSelectedArticle() {
+            if (selectedIndex >= 0 && selectedIndex < articlesData.length) {
+                window.open(articlesData[selectedIndex].url, '_blank');
+            }
+        }
+
+        async function markAsRead(articleId) {
+            try {
                 await fetch('/api/mark_as_read', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ article_id: articleId })
                 });
+            } catch (e) {
+                console.error('既読マークに失敗しました:', e);
+            }
+        }
+
+        async function purgeAndNextFeed() {
+            if (!currentFeedId || isLoading) return;
+            isLoading = true;
+
+            try {
+                await fetch('/api/purge_feed', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ feed_id: currentFeedId })
+                });
+
+                const response = await fetch('/api/load_feeds');
+                const data = await response.json();
+                feedsData = data.feeds;
+                updateRemainingFeedsIndicator();
+
+                if (nextFeedId && nextFeedArticles.length > 0) {
+                    currentFeedId = nextFeedId;
+                    const nextFeed = feedsData.find(feed => feed.id === nextFeedId);
+                    if (nextFeed) {
+                        currentFeedTitle.textContent = nextFeed.title;
+                        articlesData = nextFeedArticles;
+                        renderArticles();
+                        nextFeedId = null;
+                        nextFeedArticles = [];
+                        isLoading = false;
+                        return;
+                    }
+                }
+
+                await loadNextUnreadFeed();
+            } catch (e) {
+                console.error('フィードのパージに失敗しました:', e);
+                isLoading = false;
             }
         }
 
@@ -810,75 +812,23 @@
         }
 
         function showAllRead() {
-            document.getElementById('articlesSection').style.display = 'none';
-            document.getElementById('allRead').style.display = 'block';
-            document.getElementById('rightEdgeArea').style.display = 'none';
-            document.getElementById('remainingFeedsIndicator').style.display = 'none';
+            articlesSection.style.display = 'none';
+            allRead.style.display = 'block';
+            rightEdgeArea.style.display = 'none';
+            remainingFeedsIndicator.style.display = 'none';
         }
 
         function updateRemainingFeedsIndicator() {
             const unreadFeeds = feedsData.filter(feed => feed.unread_count > 0);
-            const remainingCount = unreadFeeds.length;
-            const indicator = document.getElementById('remainingFeedsIndicator');
-            if (remainingCount > 0) {
-                indicator.textContent = `未読フィード: ${remainingCount}`;
-                indicator.style.display = 'block';
+            if (unreadFeeds.length > 0) {
+                remainingFeedsIndicator.textContent = `未読フィード: ${unreadFeeds.length}`;
+                remainingFeedsIndicator.style.display = 'block';
             } else {
-                indicator.style.display = 'none';
+                remainingFeedsIndicator.style.display = 'none';
             }
         }
 
-        document.addEventListener('keydown', async (e) => {
-            if (document.activeElement.tagName === 'INPUT') return;
-            switch (e.key) {
-                case 'j':
-                    e.preventDefault();
-                    if (articleElements.length > 0) {
-                        selectedIndex = Math.min(selectedIndex + 1, articleElements.length - 1);
-                        updateSelectedItem();
-                    }
-                    break;
-                case 'k':
-                    e.preventDefault();
-                    if (articleElements.length > 0) {
-                        selectedIndex = Math.max(selectedIndex - 1, 0);
-                        updateSelectedItem();
-                    }
-                    break;
-                case 's':
-                    e.preventDefault();
-                    if (selectedIndex >= 0 && selectedIndex < articleElements.length) {
-                        const articleId = articleElements[selectedIndex].dataset.articleId;
-                        const isStarred = articleElements[selectedIndex].dataset.starred === 'true';
-                        const starButton = articleElements[selectedIndex].querySelector('.star-btn');
-                        await toggleStarred(articleId, !isStarred, starButton);
-                    }
-                    break;
-                case 'o':
-                    e.preventDefault();
-                    if (selectedIndex >= 0 && selectedIndex < articleElements.length) {
-                        const url = articlesData[selectedIndex].url;
-                        window.open(url, '_blank');
-                    }
-                    break;
-                // 'a' キー押下で次のフィードに移動
-                case 'a':
-                    e.preventDefault();
-                    await purgeAndNextFeed();
-                    break;
-            }
-        });
-        // body クリックで次のフィードに移動
-        document.body.addEventListener('click', async (e) => {
-            if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.closest('.modal')) {
-                return;
-            }
-            await purgeAndNextFeed();
-        });
-
-        document.addEventListener('DOMContentLoaded', () => {
-            loadFeeds();
-        });
+        document.addEventListener('DOMContentLoaded', loadFeeds);
     </script>
 </body>
 
