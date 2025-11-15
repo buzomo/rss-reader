@@ -870,6 +870,67 @@ def favs():
     return resp
 
 
+@app.route("/api/load_all_unread")
+def load_all_unread():
+    token = request.cookies.get("token")
+    if not token:
+        return jsonify({"error": "Token not found"}), 403
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # 未読の記事を全て取得（スター付きは除外）
+    cur.execute(
+        """
+        SELECT a.id, a.title, a.url, a.content, a.published_at, a.is_read, a.starred, a.feed_id, f.url as feed_url
+        FROM articles_d4e5f6 a
+        JOIN feeds_a1b2c3 f ON a.feed_id = f.id
+        WHERE a.is_read = FALSE AND a.starred = FALSE AND a.token = %s
+        ORDER BY a.published_at DESC
+        """,
+        (token,),
+    )
+    articles = [
+        {
+            "id": row[0],
+            "title": row[1],
+            "url": row[2],
+            "content": row[3],
+            "published_at": row[4].isoformat() if row[4] else None,
+            "is_read": row[5],
+            "starred": row[6],
+            "feed_id": row[7],
+            "feed_url": row[8],
+        }
+        for row in cur.fetchall()
+    ]
+
+    # フィード情報を取得
+    cur.execute(
+        """
+        SELECT f.id, f.title, f.url,
+               (SELECT COUNT(*) FROM articles_d4e5f6 WHERE feed_id = f.id AND is_read = FALSE AND starred = FALSE AND token = f.token) as unread_count
+        FROM feeds_a1b2c3 f
+        WHERE f.token = %s
+        AND EXISTS (
+            SELECT 1 FROM articles_d4e5f6
+            WHERE feed_id = f.id AND is_read = FALSE AND starred = FALSE AND token = f.token
+        )
+        ORDER BY unread_count ASC
+        """,
+        (token,),
+    )
+    feeds = [
+        {"id": row[0], "title": row[1], "url": row[2], "unread_count": row[3]}
+        for row in cur.fetchall()
+    ]
+
+    cur.close()
+    conn.close()
+
+    return jsonify({"feeds": feeds, "articles": articles})
+
+
 with app.app_context():
     init_db()
 
