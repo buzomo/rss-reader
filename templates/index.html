@@ -313,7 +313,7 @@
     </style>
 </head>
 
-<body onclick="purgeAndNextFeed()">
+<body>
     <div id="rightEdgeArea">
         <div class="page-up" onclick="scrollPage('up')"></div>
         <div class="page-down" onclick="scrollPage('down')"></div>
@@ -368,6 +368,8 @@
         let articlesData = [];
         let selectedIndex = -1;
         let feedsData = [];
+        let nextFeedId = null;
+        let nextFeedArticles = [];
 
         document.addEventListener('contextmenu', function (e) {
             e.preventDefault();
@@ -485,12 +487,6 @@
             feedsData = data.feeds;
             updateRemainingFeedsIndicator();
 
-            // セッションストレージに全フィードのデータを保存
-            sessionStorage.setItem('allFeedsData', JSON.stringify(feedsData));
-
-            // 未読フィードを非同期でプリフェッチ
-            prefetchAllFeeds();
-
             let hasUnread = false;
             for (const feed of feedsData) {
                 if (feed.unread_count > 0) {
@@ -506,40 +502,25 @@
             }
         }
 
-        async function prefetchAllFeeds() {
-            for (const feed of feedsData) {
-                if (feed.unread_count > 0) {
-                    const response = await fetch(`/api/load_articles?feed_id=${feed.id}&exclude_starred=true`);
-                    const data = await response.json();
-                    sessionStorage.setItem(`feed_${feed.id}_articles`, JSON.stringify(data.articles || []));
-                }
-            }
-        }
-
         async function prefetchNextFeed() {
             if (!currentFeedId) return;
 
             const currentFeedIndex = feedsData.findIndex(feed => feed.id === currentFeedId);
             for (let i = currentFeedIndex + 1; i < feedsData.length; i++) {
                 if (feedsData[i].unread_count > 0) {
-                    const response = await fetch(`/api/load_articles?feed_id=${feedsData[i].id}&exclude_starred=true`);
+                    nextFeedId = feedsData[i].id;
+                    const response = await fetch(`/api/load_articles?feed_id=${nextFeedId}&exclude_starred=true`);
                     const data = await response.json();
-                    sessionStorage.setItem(`feed_${feedsData[i].id}_articles`, JSON.stringify(data.articles || []));
+                    nextFeedArticles = data.articles || [];
                     break;
                 }
             }
         }
 
         async function loadArticles(feedId) {
-            const cachedArticles = sessionStorage.getItem(`feed_${feedId}_articles`);
-            if (cachedArticles) {
-                articlesData = JSON.parse(cachedArticles);
-            } else {
-                const response = await fetch(`/api/load_articles?feed_id=${feedId}&exclude_starred=true`);
-                const data = await response.json();
-                articlesData = data.articles || [];
-                sessionStorage.setItem(`feed_${feedId}_articles`, JSON.stringify(articlesData));
-            }
+            const response = await fetch(`/api/load_articles?feed_id=${feedId}&exclude_starred=true`);
+            const data = await response.json();
+            articlesData = data.articles || [];
 
             const articleList = document.getElementById('articleList');
             articleList.innerHTML = '';
@@ -601,6 +582,9 @@
 
                 currentArticleIndex = -1;
                 selectedIndex = -1;
+
+                // 次のフィードをプリフェッチ
+                prefetchNextFeed();
             } else {
                 articleList.innerHTML = '';
                 showAllRead();
@@ -628,6 +612,20 @@
                 feedsData = data.feeds;
                 updateRemainingFeedsIndicator();
 
+                if (nextFeedId && nextFeedArticles.length > 0) {
+                    currentFeedId = nextFeedId;
+                    const nextFeed = feedsData.find(feed => feed.id === nextFeedId);
+                    if (nextFeed) {
+                        document.getElementById('currentFeedTitle').textContent = nextFeed.title;
+                        articlesData = nextFeedArticles;
+                        renderArticles(articlesData);
+                        nextFeedId = null;
+                        nextFeedArticles = [];
+                        prefetchNextFeed();
+                        return;
+                    }
+                }
+
                 let nextFeed = null;
                 const currentFeedIndex = feedsData.findIndex(feed => feed.id === currentFeedId);
 
@@ -651,13 +649,71 @@
                     currentFeedId = nextFeed.id;
                     document.getElementById('currentFeedTitle').textContent = nextFeed.title;
                     await loadArticles(nextFeed.id);
-                    prefetchNextFeed();
                 } else {
                     showAllRead();
                 }
             } else {
                 console.log('パージに失敗しました。');
             }
+        }
+
+        function renderArticles(articles) {
+            const articleList = document.getElementById('articleList');
+            articleList.innerHTML = '';
+            articleElements = [];
+
+            articles.forEach((article, index) => {
+                const articleItem = document.createElement('li');
+                articleItem.className = `article-item ${article.is_read ? 'read' : 'unread'}`;
+                articleItem.dataset.index = index;
+                articleItem.dataset.articleId = article.id;
+                articleItem.dataset.starred = article.starred;
+
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'article-header';
+
+                const starButton = document.createElement('button');
+                starButton.className = `star-btn ${article.starred ? 'starred' : ''}`;
+                starButton.innerHTML = article.starred ? '★' : '☆';
+                starButton.onclick = async (e) => {
+                    e.stopPropagation();
+                    const newStarred = !article.starred;
+                    await toggleStarred(article.id, newStarred, starButton);
+                };
+
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'article-title';
+
+                const titleLink = document.createElement('a');
+                titleLink.href = article.url;
+                titleLink.target = '_blank';
+                titleLink.textContent = article.title;
+
+                const dateSpan = document.createElement('span');
+                dateSpan.className = 'article-date';
+                dateSpan.textContent = article.published_at ? new Date(article.published_at).toLocaleString() : '';
+
+                titleDiv.appendChild(titleLink);
+                headerDiv.appendChild(starButton);
+                headerDiv.appendChild(titleDiv);
+                headerDiv.appendChild(dateSpan);
+
+                articleItem.appendChild(headerDiv);
+
+                articleItem.onclick = (e) => {
+                    if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON') {
+                        selectedIndex = index;
+                        updateSelectedItem();
+                        toggleSummary(articleItem, article.id, article.content, article.url, index);
+                    }
+                };
+
+                articleList.appendChild(articleItem);
+                articleElements.push(articleItem);
+            });
+
+            currentArticleIndex = -1;
+            selectedIndex = -1;
         }
 
         function updateSelectedItem() {
