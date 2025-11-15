@@ -354,23 +354,7 @@ def all_feeds_with_frequency():
     return jsonify({"feeds": feeds})
 
 
-@app.route("/api/all_feeds")
-def all_feeds():
-    token = request.cookies.get("token")
-    if not token:
-        return jsonify({"error": "Token not found"}), 403
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT id, url, title FROM feeds_a1b2c3 WHERE token = %s ORDER BY priority ASC, title DESC
-        """,
-        (token,),
-    )
-    feeds = [{"id": row[0], "url": row[1], "title": row[2]} for row in cur.fetchall()]
-    cur.close()
-    conn.close()
-    return jsonify({"feeds": feeds})
+
 
 
 @app.route("/api/all_feeds")
