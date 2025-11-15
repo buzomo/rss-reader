@@ -19,16 +19,32 @@
             padding: 1rem;
             background-color: #f8f9fa;
             border-radius: 0.25rem;
+            border: 1px solid #dee2e6;
         }
 
         .article-title {
             font-weight: bold;
             margin-bottom: 0.5rem;
+            color: #0d6efd;
+        }
+
+        .article-title:hover {
+            color: #0b5ed7;
         }
 
         .article-meta {
             color: #6c757d;
             font-size: 0.9rem;
+        }
+
+        .unstar-btn {
+            color: #dc3545;
+            border-color: #dc3545;
+        }
+
+        .unstar-btn:hover {
+            color: #fff;
+            background-color: #dc3545;
         }
     </style>
 </head>
@@ -38,28 +54,28 @@
         <h1 class="mb-4">スターした記事</h1>
 
         {% if starred_articles_by_feed %}
-        {% for feed, articles in starred_articles_by_feed.items() %}
+        {% for feed_id, feed_info in starred_articles_by_feed.items() %}
         <div class="feed-group">
-            <h3>{{ feed.title }}</h3>
-            <p class="text-muted">{{ feed.url }}</p>
+            <h3>{{ feed_info.feed_title }}</h3>
+            <p class="text-muted"><a href="{{ feed_info.feed_url }}" target="_blank">{{ feed_info.feed_url }}</a></p>
 
-            {% for article in articles %}
+            {% for article in feed_info.articles %}
             <div class="article-card">
                 <div class="d-flex justify-content-between">
                     <div>
-                        <a href="{{ article.url }}" target="_blank" class="article-title text-decoration-none">{{
-                            article.title }}</a>
+                        <a href="{{ article.article_url }}" target="_blank"
+                            class="article-title text-decoration-none">{{ article.article_title }}</a>
                         <div class="article-meta">
-                            {{ article.published_at|default("公開日不明", true) }}
+                            {{ article.article_published_at|default("公開日不明", true) }}
                         </div>
                     </div>
                     <div>
-                        <button class="btn btn-sm btn-outline-danger unstar-btn" data-article-id="{{ article.id }}">★
-                            解除</button>
+                        <button class="btn btn-sm btn-outline-danger unstar-btn"
+                            data-article-id="{{ article.article_id }}">★ 解除</button>
                     </div>
                 </div>
                 <div class="mt-2">
-                    {{ article.content|truncate(200) }}
+                    {{ article.article_content|truncate(200) }}
                 </div>
             </div>
             {% endfor %}

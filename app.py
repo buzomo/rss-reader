@@ -841,21 +841,22 @@ def favs():
     # フィードごとに記事をグループ化
     starred_articles_by_feed = {}
     for row in rows:
-        feed = {"id": row[0], "title": row[1], "url": row[2]}
-        article = {
-            "id": row[3],
-            "title": row[4],
-            "url": row[5],
-            "content": row[6],
-            "published_at": row[7].isoformat() if row[7] else None,
-        }
-        if feed["id"] not in starred_articles_by_feed:
-            starred_articles_by_feed[feed["id"]] = {
-                "title": feed["title"],
-                "url": feed["url"],
+        feed_id = row[0]
+        if feed_id not in starred_articles_by_feed:
+            starred_articles_by_feed[feed_id] = {
+                "feed_title": row[1],
+                "feed_url": row[2],
                 "articles": [],
             }
-        starred_articles_by_feed[feed["id"]]["articles"].append(article)
+        starred_articles_by_feed[feed_id]["articles"].append(
+            {
+                "article_id": row[3],
+                "article_title": row[4],
+                "article_url": row[5],
+                "article_content": row[6],
+                "article_published_at": row[7].isoformat() if row[7] else None,
+            }
+        )
 
     cur.close()
     conn.close()
