@@ -530,78 +530,20 @@
             }
         }
 
-        async function purgeAndNextFeed() {
-            if (!currentFeedId) {
-                console.log('フィードが選択されていません。');
-                return;
-            }
-
-            const purgeResponse = await fetch('/api/purge_feed', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ feed_id: currentFeedId })
-            });
-
-            if (purgeResponse.ok) {
-                const response = await fetch('/api/load_feeds');
-                const data = await response.json();
-                feedsData = data.feeds;
-                updateRemainingFeedsIndicator();
-
-                let nextFeed = null;
-                const currentFeedIndex = feedsData.findIndex(feed => feed.id === currentFeedId);
-
-                // セッションストレージから次のフィードのデータを取得
-                for (let i = currentFeedIndex + 1; i < feedsData.length; i++) {
-                    if (feedsData[i].unread_count > 0) {
-                        nextFeed = feedsData[i];
-                        const cachedArticles = sessionStorage.getItem(`feed_${nextFeed.id}_articles`);
-                        if (cachedArticles) {
-                            articlesData = JSON.parse(cachedArticles);
-                        } else {
-                            const articlesResponse = await fetch(`/api/load_articles?feed_id=${nextFeed.id}&exclude_starred=true`);
-                            const articlesDataResponse = await articlesResponse.json();
-                            articlesData = articlesDataResponse.articles || [];
-                        }
-                        break;
-                    }
-                }
-
-                if (!nextFeed) {
-                    for (let i = 0; i < currentFeedIndex; i++) {
-                        if (feedsData[i].unread_count > 0) {
-                            nextFeed = feedsData[i];
-                            const cachedArticles = sessionStorage.getItem(`feed_${nextFeed.id}_articles`);
-                            if (cachedArticles) {
-                                articlesData = JSON.parse(cachedArticles);
-                            } else {
-                                const articlesResponse = await fetch(`/api/load_articles?feed_id=${nextFeed.id}&exclude_starred=true`);
-                                const articlesDataResponse = await articlesResponse.json();
-                                articlesData = articlesDataResponse.articles || [];
-                            }
-                            break;
-                        }
-                    }
-                }
-
-                if (nextFeed) {
-                    currentFeedId = nextFeed.id;
-                    document.getElementById('currentFeedTitle').textContent = nextFeed.title;
-                    renderArticles(articlesData);
-                    prefetchNextFeed();
-                } else {
-                    showAllRead();
-                }
+        async function loadArticles(feedId) {
+            const cachedArticles = sessionStorage.getItem(`feed_${feedId}_articles`);
+            if (cachedArticles) {
+                articlesData = JSON.parse(cachedArticles);
             } else {
-                console.log('パージに失敗しました。');
+                const response = await fetch(`/api/load_articles?feed_id=${feedId}&exclude_starred=true`);
+                const data = await response.json();
+                articlesData = data.articles || [];
+                sessionStorage.setItem(`feed_${feedId}_articles`, JSON.stringify(articlesData));
             }
-        }
 
-        function renderArticles(articles) {
             const articleList = document.getElementById('articleList');
             articleList.innerHTML = '';
             articleElements = [];
-            articlesData = articles || [];
 
             if (articlesData.length > 0) {
                 document.getElementById('allRead').style.display = 'none';
@@ -665,6 +607,56 @@
                 articleElements = [];
                 articlesData = [];
                 selectedIndex = -1;
+            }
+        }
+
+        async function purgeAndNextFeed() {
+            if (!currentFeedId) {
+                console.log('フィードが選択されていません。');
+                return;
+            }
+
+            const purgeResponse = await fetch('/api/purge_feed', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ feed_id: currentFeedId })
+            });
+
+            if (purgeResponse.ok) {
+                const response = await fetch('/api/load_feeds');
+                const data = await response.json();
+                feedsData = data.feeds;
+                updateRemainingFeedsIndicator();
+
+                let nextFeed = null;
+                const currentFeedIndex = feedsData.findIndex(feed => feed.id === currentFeedId);
+
+                for (let i = currentFeedIndex + 1; i < feedsData.length; i++) {
+                    if (feedsData[i].unread_count > 0) {
+                        nextFeed = feedsData[i];
+                        break;
+                    }
+                }
+
+                if (!nextFeed) {
+                    for (let i = 0; i < currentFeedIndex; i++) {
+                        if (feedsData[i].unread_count > 0) {
+                            nextFeed = feedsData[i];
+                            break;
+                        }
+                    }
+                }
+
+                if (nextFeed) {
+                    currentFeedId = nextFeed.id;
+                    document.getElementById('currentFeedTitle').textContent = nextFeed.title;
+                    await loadArticles(nextFeed.id);
+                    prefetchNextFeed();
+                } else {
+                    showAllRead();
+                }
+            } else {
+                console.log('パージに失敗しました。');
             }
         }
 
