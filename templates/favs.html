@@ -9,9 +9,18 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         .feed-group {
-            margin-bottom: 2rem;
+            margin-bottom: 1rem;
             border-bottom: 1px solid #eee;
-            padding-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            cursor: pointer;
+        }
+
+        .feed-group:hover {
+            background-color: #f8f9fa;
+        }
+
+        .feed-group.active {
+            background-color: #e9ecef;
         }
 
         .article-card {
@@ -46,51 +55,102 @@
             color: #fff;
             background-color: #dc3545;
         }
+
+        .pane {
+            height: calc(100vh - 80px);
+            overflow-y: auto;
+        }
+
+        .feed-list {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .feed-list li {
+            padding: 0.5rem;
+        }
     </style>
 </head>
 
 <body>
-    <div class="container py-4">
+    <div class="container-fluid py-4">
         <h1 class="mb-4">スターした記事</h1>
-
-        {% if starred_articles_by_feed %}
-        {% for feed_id, feed_info in starred_articles_by_feed.items() %}
-        <div class="feed-group">
-            <h3>{{ feed_info.feed_title }}</h3>
-            <p class="text-muted"><a href="{{ feed_info.feed_url }}" target="_blank">{{ feed_info.feed_url }}</a></p>
-
-            {% for article in feed_info.articles %}
-            <div class="article-card">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <a href="{{ article.article_url }}" target="_blank"
-                            class="article-title text-decoration-none">{{ article.article_title }}</a>
-                        <div class="article-meta">
-                            {{ article.article_published_at|default("公開日不明", true) }}
+        <div class="row">
+            <!-- 左ペイン: フィード一覧 -->
+            <div class="col-md-4 pane border-end">
+                <h3>フィード一覧</h3>
+                <ul class="feed-list">
+                    {% if starred_articles_by_feed %}
+                    {% for feed_id, feed_info in starred_articles_by_feed.items() %}
+                    <li class="feed-group" data-feed-id="{{ feed_id }}">
+                        <h5>{{ feed_info.feed_title }}</h5>
+                        <p class="text-muted small mb-0"><a href="{{ feed_info.feed_url }}" target="_blank"
+                                class="text-muted">{{ feed_info.feed_url }}</a></p>
+                        <span class="badge bg-secondary">{{ feed_info.articles|length }} 記事</span>
+                    </li>
+                    {% endfor %}
+                    {% else %}
+                    <div class="alert alert-info">
+                        スターした記事はありません。
+                    </div>
+                    {% endif %}
+                </ul>
+            </div>
+            <!-- 右ペイン: 記事一覧 -->
+            <div class="col-md-8 pane">
+                <div id="article-container">
+                    {% if starred_articles_by_feed %}
+                    {% for feed_id, feed_info in starred_articles_by_feed.items() %}
+                    <div class="feed-articles" data-feed-id="{{ feed_id }}" {% if loop.first %}style="display: block;"
+                        {% else %}style="display: none;" {% endif %}>
+                        <h3>{{ feed_info.feed_title }}</h3>
+                        {% for article in feed_info.articles %}
+                        <div class="article-card">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <a href="{{ article.article_url }}" target="_blank"
+                                        class="article-title text-decoration-none">{{ article.article_title }}</a>
+                                    <div class="article-meta">
+                                        {{ article.article_published_at|default("公開日不明", true) }}
+                                    </div>
+                                </div>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-danger unstar-btn"
+                                        data-article-id="{{ article.article_id }}">★ 解除</button>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                {{ article.article_content|truncate(200) }}
+                            </div>
                         </div>
+                        {% endfor %}
                     </div>
-                    <div>
-                        <button class="btn btn-sm btn-outline-danger unstar-btn"
-                            data-article-id="{{ article.article_id }}">★ 解除</button>
+                    {% endfor %}
+                    {% else %}
+                    <div class="alert alert-info">
+                        スターした記事はありません。
                     </div>
-                </div>
-                <div class="mt-2">
-                    {{ article.article_content|truncate(200) }}
+                    {% endif %}
                 </div>
             </div>
-            {% endfor %}
         </div>
-        {% endfor %}
-        {% else %}
-        <div class="alert alert-info">
-            スターした記事はありません。
-        </div>
-        {% endif %}
     </div>
-
     <!-- Bootstrap 5 JS Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // フィード選択時のイベントリスナー
+        document.querySelectorAll('.feed-group').forEach(group => {
+            group.addEventListener('click', (e) => {
+                document.querySelectorAll('.feed-group').forEach(g => g.classList.remove('active'));
+                e.currentTarget.classList.add('active');
+
+                const feedId = e.currentTarget.dataset.feedId;
+                document.querySelectorAll('.feed-articles').forEach(container => {
+                    container.style.display = container.dataset.feedId === feedId ? 'block' : 'none';
+                });
+            });
+        });
+
         // スター解除ボタンのイベントリスナー
         document.querySelectorAll('.unstar-btn').forEach(button => {
             button.addEventListener('click', async (e) => {
