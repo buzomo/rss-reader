@@ -9,6 +9,7 @@
         href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E✉%3C/text%3E%3C/svg%3E"
         type="image/svg+xml">
     <style>
+        /* 省略（スタイルは変更なし） */
         html,
         body {
             height: 100%;
@@ -359,7 +360,7 @@
         </div>
     </div>
     <script>
-        let currentToken = "{{ token }}";
+        let currentToken = "vpMmY6Q5ZuAVtr0k8JMLoFCkD0QjrPURfUnZs88t4kk";
         let currentFeedId = null;
         let currentSummaryElement = null;
         let currentArticleIndex = -1;
@@ -483,6 +484,13 @@
             const data = await response.json();
             feedsData = data.feeds;
             updateRemainingFeedsIndicator();
+
+            // セッションストレージに全フィードのデータを保存
+            sessionStorage.setItem('allFeedsData', JSON.stringify(feedsData));
+
+            // 未読フィードを非同期でプリフェッチ
+            prefetchAllFeeds();
+
             let hasUnread = false;
             for (const feed of feedsData) {
                 if (feed.unread_count > 0) {
@@ -498,41 +506,89 @@
             }
         }
 
+        async function prefetchAllFeeds() {
+            for (const feed of feedsData) {
+                if (feed.unread_count > 0) {
+                    const response = await fetch(`/api/load_articles?feed_id=${feed.id}&exclude_starred=true`);
+                    const data = await response.json();
+                    sessionStorage.setItem(`feed_${feed.id}_articles`, JSON.stringify(data.articles || []));
+                }
+            }
+        }
+
+        async function prefetchNextFeed() {
+            if (!currentFeedId) return;
+
+            const currentFeedIndex = feedsData.findIndex(feed => feed.id === currentFeedId);
+            for (let i = currentFeedIndex + 1; i < feedsData.length; i++) {
+                if (feedsData[i].unread_count > 0) {
+                    const response = await fetch(`/api/load_articles?feed_id=${feedsData[i].id}&exclude_starred=true`);
+                    const data = await response.json();
+                    sessionStorage.setItem(`feed_${feedsData[i].id}_articles`, JSON.stringify(data.articles || []));
+                    break;
+                }
+            }
+        }
+
         async function purgeAndNextFeed() {
             if (!currentFeedId) {
                 console.log('フィードが選択されていません。');
                 return;
             }
+
             const purgeResponse = await fetch('/api/purge_feed', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ feed_id: currentFeedId })
             });
+
             if (purgeResponse.ok) {
                 const response = await fetch('/api/load_feeds');
                 const data = await response.json();
                 feedsData = data.feeds;
                 updateRemainingFeedsIndicator();
+
                 let nextFeed = null;
                 const currentFeedIndex = feedsData.findIndex(feed => feed.id === currentFeedId);
+
+                // セッションストレージから次のフィードのデータを取得
                 for (let i = currentFeedIndex + 1; i < feedsData.length; i++) {
                     if (feedsData[i].unread_count > 0) {
                         nextFeed = feedsData[i];
+                        const cachedArticles = sessionStorage.getItem(`feed_${nextFeed.id}_articles`);
+                        if (cachedArticles) {
+                            articlesData = JSON.parse(cachedArticles);
+                        } else {
+                            const articlesResponse = await fetch(`/api/load_articles?feed_id=${nextFeed.id}&exclude_starred=true`);
+                            const articlesDataResponse = await articlesResponse.json();
+                            articlesData = articlesDataResponse.articles || [];
+                        }
                         break;
                     }
                 }
+
                 if (!nextFeed) {
                     for (let i = 0; i < currentFeedIndex; i++) {
                         if (feedsData[i].unread_count > 0) {
                             nextFeed = feedsData[i];
+                            const cachedArticles = sessionStorage.getItem(`feed_${nextFeed.id}_articles`);
+                            if (cachedArticles) {
+                                articlesData = JSON.parse(cachedArticles);
+                            } else {
+                                const articlesResponse = await fetch(`/api/load_articles?feed_id=${nextFeed.id}&exclude_starred=true`);
+                                const articlesDataResponse = await articlesResponse.json();
+                                articlesData = articlesDataResponse.articles || [];
+                            }
                             break;
                         }
                     }
                 }
+
                 if (nextFeed) {
                     currentFeedId = nextFeed.id;
                     document.getElementById('currentFeedTitle').textContent = nextFeed.title;
-                    await loadArticles(nextFeed.id);
+                    renderArticles(articlesData);
+                    prefetchNextFeed();
                 } else {
                     showAllRead();
                 }
@@ -541,43 +597,26 @@
             }
         }
 
-        function showAllRead() {
-            document.getElementById('articlesSection').style.display = 'none';
-            document.getElementById('allRead').style.display = 'block';
-            document.getElementById('rightEdgeArea').style.display = 'none';
-            document.getElementById('remainingFeedsIndicator').style.display = 'none';
-        }
-
-        function updateRemainingFeedsIndicator() {
-            const unreadFeeds = feedsData.filter(feed => feed.unread_count > 0);
-            const remainingCount = unreadFeeds.length;
-            const indicator = document.getElementById('remainingFeedsIndicator');
-            if (remainingCount > 0) {
-                indicator.textContent = `未読フィード: ${remainingCount}`;
-                indicator.style.display = 'block';
-            } else {
-                indicator.style.display = 'none';
-            }
-        }
-
-        async function loadArticles(feedId) {
-            const response = await fetch(`/api/load_articles?feed_id=${feedId}&exclude_starred=true`);
-            const data = await response.json();
+        function renderArticles(articles) {
             const articleList = document.getElementById('articleList');
             articleList.innerHTML = '';
             articleElements = [];
-            articlesData = data.articles || [];
+            articlesData = articles || [];
+
             if (articlesData.length > 0) {
                 document.getElementById('allRead').style.display = 'none';
                 document.getElementById('articlesSection').style.display = 'block';
+
                 articlesData.forEach((article, index) => {
                     const articleItem = document.createElement('li');
                     articleItem.className = `article-item ${article.is_read ? 'read' : 'unread'}`;
                     articleItem.dataset.index = index;
                     articleItem.dataset.articleId = article.id;
                     articleItem.dataset.starred = article.starred;
+
                     const headerDiv = document.createElement('div');
                     headerDiv.className = 'article-header';
+
                     const starButton = document.createElement('button');
                     starButton.className = `star-btn ${article.starred ? 'starred' : ''}`;
                     starButton.innerHTML = article.starred ? '★' : '☆';
@@ -586,20 +625,26 @@
                         const newStarred = !article.starred;
                         await toggleStarred(article.id, newStarred, starButton);
                     };
+
                     const titleDiv = document.createElement('div');
                     titleDiv.className = 'article-title';
+
                     const titleLink = document.createElement('a');
                     titleLink.href = article.url;
                     titleLink.target = '_blank';
                     titleLink.textContent = article.title;
+
                     const dateSpan = document.createElement('span');
                     dateSpan.className = 'article-date';
                     dateSpan.textContent = article.published_at ? new Date(article.published_at).toLocaleString() : '';
+
                     titleDiv.appendChild(titleLink);
                     headerDiv.appendChild(starButton);
                     headerDiv.appendChild(titleDiv);
                     headerDiv.appendChild(dateSpan);
+
                     articleItem.appendChild(headerDiv);
+
                     articleItem.onclick = (e) => {
                         if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON') {
                             selectedIndex = index;
@@ -607,9 +652,11 @@
                             toggleSummary(articleItem, article.id, article.content, article.url, index);
                         }
                     };
+
                     articleList.appendChild(articleItem);
                     articleElements.push(articleItem);
                 });
+
                 currentArticleIndex = -1;
                 selectedIndex = -1;
             } else {
@@ -640,6 +687,7 @@
             if (currentSummaryElement) {
                 currentSummaryElement.remove();
             }
+
             const response = await fetch('/api/fetch_full_content', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -647,17 +695,21 @@
             });
             const data = await response.json();
             const fullContent = data.content || content;
+
             const summaryDiv = document.createElement('div');
             summaryDiv.className = 'summary';
             summaryDiv.innerHTML = `<br><br>${fullContent}`;
+
             articleItem.appendChild(summaryDiv);
             currentSummaryElement = summaryDiv;
             currentArticleIndex = index;
+
             await fetch('/api/mark_as_read', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ article_id: articleId })
             });
+
             articleItem.scrollIntoView({ behavior: 'auto', block: 'start' });
         }
 
@@ -667,12 +719,15 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: articleId, starred: starred })
             });
+
             if (response.ok) {
                 button.className = `star-btn ${starred ? 'starred' : ''}`;
                 button.innerHTML = starred ? '★' : '☆';
+
                 if (articleElements[currentArticleIndex]) {
                     articleElements[currentArticleIndex].dataset.starred = starred;
                 }
+
                 if (starred) {
                     if (currentSummaryElement) {
                         currentSummaryElement.remove();
@@ -685,6 +740,7 @@
                     }
                     currentArticleIndex = -1;
                 }
+
                 await fetch('/api/mark_as_read', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -698,6 +754,25 @@
                 top: direction === 'up' ? -window.innerHeight + 100 : window.innerHeight - 100,
                 behavior: 'auto'
             });
+        }
+
+        function showAllRead() {
+            document.getElementById('articlesSection').style.display = 'none';
+            document.getElementById('allRead').style.display = 'block';
+            document.getElementById('rightEdgeArea').style.display = 'none';
+            document.getElementById('remainingFeedsIndicator').style.display = 'none';
+        }
+
+        function updateRemainingFeedsIndicator() {
+            const unreadFeeds = feedsData.filter(feed => feed.unread_count > 0);
+            const remainingCount = unreadFeeds.length;
+            const indicator = document.getElementById('remainingFeedsIndicator');
+            if (remainingCount > 0) {
+                indicator.textContent = `未読フィード: ${remainingCount}`;
+                indicator.style.display = 'block';
+            } else {
+                indicator.style.display = 'none';
+            }
         }
 
         document.addEventListener('keydown', async (e) => {
