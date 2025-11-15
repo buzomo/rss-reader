@@ -12,11 +12,12 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         .feed-group {
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.25rem;
             padding: 0.5rem;
             border-radius: 0.25rem;
             cursor: pointer;
             font-size: 0.9rem;
+            line-height: 1.2;
         }
 
         .feed-group:hover {
@@ -61,13 +62,14 @@
         }
 
         .pane {
-            height: calc(100vh - 80px);
+            height: calc(100vh - 60px);
             overflow-y: auto;
         }
 
         .feed-list {
             list-style: none;
             padding-left: 0;
+            margin-bottom: 0;
         }
 
         .feed-list li {
@@ -76,16 +78,9 @@
 
         .feed-title {
             font-weight: 500;
-            margin-bottom: 0.25rem;
-        }
-
-        .feed-url {
-            font-size: 0.8rem;
-            color: #6c757d;
-        }
-
-        .badge {
-            font-size: 0.75rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
     </style>
 </head>
@@ -100,9 +95,6 @@
                     {% for feed_id, feed_info in starred_articles_by_feed.items() %}
                     <li class="feed-group" data-feed-id="{{ feed_id }}">
                         <div class="feed-title">{{ feed_info.feed_title }}</div>
-                        <div class="feed-url"><a href="{{ feed_info.feed_url }}" target="_blank">{{ feed_info.feed_url
-                                }}</a></div>
-                        <span class="badge bg-secondary">{{ feed_info.articles|length }} 記事</span>
                     </li>
                     {% endfor %}
                     {% else %}
