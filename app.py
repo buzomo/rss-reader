@@ -807,6 +807,68 @@ def pause_feed():
     conn.close()
     return jsonify({"status": "success"})
 
+
+@app.route("/favs")
+def favs():
+    token = request.args.get("token")
+    if not token:
+        token = request.cookies.get("token")
+    if not token:
+        token = generate_token()
+        resp = make_response(redirect(url_for("favs", token=token)))
+        resp.set_cookie("token", token)
+        return resp
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # スターした記事をフィードごとに取得
+    cur.execute(
+        """
+        SELECT
+            f.id as feed_id, f.title as feed_title, f.url as feed_url,
+            a.id as article_id, a.title as article_title, a.url as article_url,
+            a.content as article_content, a.published_at as article_published_at
+        FROM articles_d4e5f6 a
+        JOIN feeds_a1b2c3 f ON a.feed_id = f.id
+        WHERE a.starred = TRUE AND a.token = %s
+        ORDER BY f.title ASC, a.published_at DESC
+        """,
+        (token,),
+    )
+    rows = cur.fetchall()
+
+    # フィードごとに記事をグループ化
+    starred_articles_by_feed = {}
+    for row in rows:
+        feed = {"id": row[0], "title": row[1], "url": row[2]}
+        article = {
+            "id": row[3],
+            "title": row[4],
+            "url": row[5],
+            "content": row[6],
+            "published_at": row[7].isoformat() if row[7] else None,
+        }
+        if feed["id"] not in starred_articles_by_feed:
+            starred_articles_by_feed[feed["id"]] = {
+                "title": feed["title"],
+                "url": feed["url"],
+                "articles": [],
+            }
+        starred_articles_by_feed[feed["id"]]["articles"].append(article)
+
+    cur.close()
+    conn.close()
+
+    resp = make_response(
+        render_template(
+            "favs.html", starred_articles_by_feed=starred_articles_by_feed, token=token
+        )
+    )
+    resp.set_cookie("token", token)
+    return resp
+
+
 with app.app_context():
     init_db()
 

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>スターした記事</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .feed-group {
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 1rem;
+        }
+
+        .article-card {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background-color: #f8f9fa;
+            border-radius: 0.25rem;
+        }
+
+        .article-title {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .article-meta {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container py-4">
+        <h1 class="mb-4">スターした記事</h1>
+
+        {% if starred_articles_by_feed %}
+        {% for feed, articles in starred_articles_by_feed.items() %}
+        <div class="feed-group">
+            <h3>{{ feed.title }}</h3>
+            <p class="text-muted">{{ feed.url }}</p>
+
+            {% for article in articles %}
+            <div class="article-card">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <a href="{{ article.url }}" target="_blank" class="article-title text-decoration-none">{{
+                            article.title }}</a>
+                        <div class="article-meta">
+                            {{ article.published_at|default("公開日不明", true) }}
+                        </div>
+                    </div>
+                    <div>
+                        <button class="btn btn-sm btn-outline-danger unstar-btn" data-article-id="{{ article.id }}">★
+                            解除</button>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    {{ article.content|truncate(200) }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="alert alert-info">
+            スターした記事はありません。
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Bootstrap 5 JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // スター解除ボタンのイベントリスナー
+        document.querySelectorAll('.unstar-btn').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const articleId = e.target.dataset.articleId;
+                const response = await fetch('/api/toggle_starred', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        id: articleId,
+                        starred: false
+                    })
+                });
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    alert('スター解除に失敗しました。');
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>
