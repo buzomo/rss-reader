@@ -9,7 +9,7 @@
         href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E✉%3C/text%3E%3C/svg%3E"
         type="image/svg+xml">
     <style>
-        /* スタイルは変更なし */
+        /* スタイルは変更なし（＋プログレスバー用追加） */
         html,
         body {
             height: 100%;
@@ -30,6 +30,8 @@
             --modal-text: #333;
             --modal-button-bg: #f0f0f0;
             --modal-button-hover: #e0e0e0;
+            --progress-track: #e9e9e9;
+            --progress-fill: #4caf50;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -48,6 +50,8 @@
                 --modal-text: #e0e0e0;
                 --modal-button-bg: #3a3a3a;
                 --modal-button-hover: #4a4a4a;
+                --progress-track: #2a2a2a;
+                --progress-fill: #66bb6a;
             }
         }
 
@@ -158,10 +162,13 @@
         }
 
         h2 {
-            margin-bottom: 10px;
+            margin-bottom: 6px;
             display: flex;
             align-items: center;
             color: var(--text-color);
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
         }
 
         #fileInput {
@@ -208,18 +215,21 @@
             max-width: 300px;
         }
 
-        #remainingFeedsIndicator {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            color: var(--text-secondary);
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 14px;
-            z-index: 1000;
-            display: none;
-            background-color: var(--container-bg);
-            border: 1px solid var(--border-color);
+        /* プログレスバー（見出し下） */
+        .progress-container {
+            width: 100%;
+            height: 4px;
+            background-color: var(--progress-track);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 6px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background-color: var(--progress-fill);
+            transition: width 300ms ease;
         }
 
         /* モーダルスタイル */
@@ -318,11 +328,18 @@
         <div class="page-up" onclick="scrollPage('up')"></div>
         <div class="page-down" onclick="scrollPage('down')"></div>
     </div>
-    <div id="remainingFeedsIndicator"></div>
+
     <div class="container">
         <div id="articlesSection" class="section">
             <h2 id="articleHeader">
-                <span id="currentFeedTitle">ニュース一覧</span>
+                <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
+                    <span id="currentFeedTitle">ニュース一覧</span>
+                </div>
+                <!-- 見出しの下に進捗バーを表示 -->
+                <div class="progress-container" id="feedProgressContainer" aria-hidden="true" title="未読フィードの進捗">
+                    <div class="progress-bar" id="feedProgressBar" role="progressbar" aria-valuemin="0"
+                        aria-valuemax="100" aria-valuenow="0"></div>
+                </div>
             </h2>
             <ul class="article-list" id="articleList"></ul>
         </div>
@@ -372,13 +389,19 @@
         let allUnreadArticles = [];
         let currentFeedArticles = [];
         let isLoading = false;
+
+        // 進捗用
+        let totalUnreadFeeds = 0; // 初回ロード時に設定
+        const feedProgressBar = document.getElementById('feedProgressBar');
+        const feedProgressContainer = document.getElementById('feedProgressContainer');
+
         // DOM要素のキャッシュ
         const articleList = document.getElementById('articleList');
         const articlesSection = document.getElementById('articlesSection');
         const allRead = document.getElementById('allRead');
         const rightEdgeArea = document.getElementById('rightEdgeArea');
-        const remainingFeedsIndicator = document.getElementById('remainingFeedsIndicator');
         const currentFeedTitle = document.getElementById('currentFeedTitle');
+
         // イベントリスナー
         document.addEventListener('contextmenu', (e) => {
             e.preventDefault();
@@ -429,6 +452,7 @@
             }
             await moveToNextFeed();
         });
+
         // 関数定義
         function openModal() {
             document.getElementById('contextModal').style.display = 'block';
@@ -509,13 +533,19 @@
                 }
             }
         }
+
+        // ロードして初期化
         async function loadAllUnread() {
             try {
                 const response = await fetch('/api/load_all_unread');
                 const data = await response.json();
                 allUnreadArticles = data.articles || [];
                 feedsData = data.feeds || [];
-                updateRemainingFeedsIndicator();
+
+                // 初回の未読フィード総数を設定（allUnreadArticlesのfeed_idのユニーク数）
+                const unreadFeedIds = new Set(allUnreadArticles.map(a => a.feed_id));
+                totalUnreadFeeds = unreadFeedIds.size;
+
                 if (allUnreadArticles.length > 0) {
                     currentFeedId = allUnreadArticles[0].feed_id;
                     currentFeedArticles = allUnreadArticles.filter(article => article.feed_id === currentFeedId);
@@ -524,6 +554,7 @@
                         currentFeedTitle.textContent = currentFeed.title;
                     }
                     renderArticles();
+                    updateFeedProgress();
                 } else {
                     showAllRead();
                 }
@@ -531,6 +562,7 @@
                 console.error('未読記事の読み込みに失敗しました:', e);
             }
         }
+
         function renderArticles() {
             articleList.innerHTML = '';
             articleElements = [];
@@ -585,6 +617,7 @@
             currentArticleIndex = -1;
             selectedIndex = -1;
         }
+
         function navigateArticles(direction) {
             if (articleElements.length === 0) return;
             const newIndex = selectedIndex + direction;
@@ -596,6 +629,7 @@
                 showSummary(articleItem, article.id, article.content, article.url);
             }
         }
+
         function updateSelectedItem() {
             articleElements.forEach((item, index) => {
                 if (index === selectedIndex) {
@@ -606,6 +640,7 @@
                 }
             });
         }
+
         async function showSummary(articleItem, articleId, content, url) {
             if (currentSummaryElement) {
                 currentSummaryElement.remove();
@@ -629,6 +664,7 @@
                 console.error('記事の詳細取得に失敗しました:', e);
             }
         }
+
         async function toggleStarred(articleId, starred, button, index) {
             try {
                 const response = await fetch('/api/toggle_starred', {
@@ -645,6 +681,7 @@
                 console.error('スターのトグルに失敗しました:', e);
             }
         }
+
         async function toggleStarredForSelected() {
             if (selectedIndex >= 0 && selectedIndex < articleElements.length) {
                 const articleId = articleElements[selectedIndex].dataset.articleId;
@@ -653,11 +690,13 @@
                 await toggleStarred(articleId, !isStarred, starButton, selectedIndex);
             }
         }
+
         function openSelectedArticle() {
             if (selectedIndex >= 0 && selectedIndex < currentFeedArticles.length) {
                 window.open(currentFeedArticles[selectedIndex].url, '_blank');
             }
         }
+
         async function markAsRead(articleId) {
             try {
                 await fetch('/api/mark_as_read', {
@@ -669,6 +708,8 @@
                 console.error('既読マークに失敗しました:', e);
             }
         }
+
+        // 次のフィードへ移動（閲覧進捗が増える）
         async function moveToNextFeed() {
             if (isLoading) return;
             isLoading = true;
@@ -681,10 +722,11 @@
                 Promise.all(markReadPromises).catch(e => {
                     console.error('既読マーク処理中にエラーが発生しました:', e);
                 });
-                // 次のフィードの未読記事を即座に取得・描画
-                allUnreadArticles = allUnreadArticles.filter(article => article.feed_id !== currentFeedId);
-                updateRemainingFeedsIndicator();
 
+                // allUnreadArticles から現在フィードに属する記事を削除（表示しているフィードを"消化"した扱い）
+                allUnreadArticles = allUnreadArticles.filter(article => article.feed_id !== currentFeedId);
+
+                // 次のフィードの未読記事を即座に取得・描画
                 if (allUnreadArticles.length > 0) {
                     currentFeedId = allUnreadArticles[0].feed_id;
                     currentFeedArticles = allUnreadArticles.filter(article => article.feed_id === currentFeedId);
@@ -693,6 +735,7 @@
                         currentFeedTitle.textContent = nextFeed.title;
                     }
                     renderArticles();
+                    updateFeedProgress();
                 } else {
                     showAllRead();
                 }
@@ -702,27 +745,57 @@
                 isLoading = false;
             }
         }
+
         function scrollPage(direction) {
             window.scrollBy({
                 top: direction === 'up' ? -window.innerHeight + 100 : window.innerHeight - 100,
                 behavior: 'auto'
             });
         }
+
         function showAllRead() {
             articlesSection.style.display = 'none';
             allRead.style.display = 'block';
             rightEdgeArea.style.display = 'none';
-            remainingFeedsIndicator.style.display = 'none';
+            // 進捗バーは全て完了にする
+            setProgress(100);
+            // 小さめに非表示化して視覚的に邪魔にならないように
+            feedProgressContainer.style.display = 'none';
         }
-        function updateRemainingFeedsIndicator() {
-            const unreadFeeds = feedsData.filter(feed => feed.unread_count > 0);
-            if (unreadFeeds.length > 0) {
-                remainingFeedsIndicator.textContent = `未読フィード: ${unreadFeeds.length}`;
-                remainingFeedsIndicator.style.display = 'block';
+
+        // 進捗関連
+        function updateFeedProgress() {
+            // 残り未読フィードの数（allUnreadArticles のユニーク feed_id 数）
+            const remainingFeedIds = new Set(allUnreadArticles.map(a => a.feed_id));
+            const remaining = remainingFeedIds.size;
+
+            // 初回ロード時など totalUnreadFeeds が 0 の場合は remaining を総数にする（安全措置）
+            if (totalUnreadFeeds === 0) {
+                totalUnreadFeeds = remaining;
+            }
+
+            // 進捗率（閲覧済みフィード数 / 総未読フィード数）
+            const visited = Math.max(0, totalUnreadFeeds - remaining);
+            const percent = totalUnreadFeeds > 0 ? Math.round((visited / totalUnreadFeeds) * 100) : 100;
+
+            setProgress(percent);
+
+            // 進捗バーの表示制御
+            if (totalUnreadFeeds === 0) {
+                feedProgressContainer.style.display = 'none';
             } else {
-                remainingFeedsIndicator.style.display = 'none';
+                feedProgressContainer.style.display = 'block';
             }
         }
+
+        function setProgress(percent) {
+            const p = Math.max(0, Math.min(100, percent));
+            feedProgressBar.style.width = p + '%';
+            feedProgressBar.setAttribute('aria-valuenow', String(p));
+            feedProgressBar.setAttribute('aria-label', `未読フィード閲覧進捗 ${p}パーセント`);
+        }
+
+        // 初期ロード
         document.addEventListener('DOMContentLoaded', loadAllUnread);
     </script>
 </body>
