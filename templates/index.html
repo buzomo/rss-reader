@@ -417,6 +417,10 @@
                     e.preventDefault();
                     await moveToNextFeed();
                     break;
+                case ' ':
+                    e.preventDefault();
+                    await moveToNextFeed();
+                    break;
             }
         });
         document.body.addEventListener('click', async (e) => {
