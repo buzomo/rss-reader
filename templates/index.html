@@ -372,7 +372,6 @@
         let allUnreadArticles = [];
         let currentFeedArticles = [];
         let isLoading = false;
-
         // DOM要素のキャッシュ
         const articleList = document.getElementById('articleList');
         const articlesSection = document.getElementById('articlesSection');
@@ -380,13 +379,11 @@
         const rightEdgeArea = document.getElementById('rightEdgeArea');
         const remainingFeedsIndicator = document.getElementById('remainingFeedsIndicator');
         const currentFeedTitle = document.getElementById('currentFeedTitle');
-
         // イベントリスナー
         document.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             openModal();
         });
-
         document.getElementById('fileInput').addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -397,7 +394,6 @@
             importOPML(file);
             e.target.value = '';
         });
-
         document.addEventListener('keydown', async (e) => {
             if (document.activeElement.tagName === 'INPUT') return;
             switch (e.key) {
@@ -423,25 +419,21 @@
                     break;
             }
         });
-
         document.body.addEventListener('click', async (e) => {
             if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.closest('.modal')) {
                 return;
             }
             await moveToNextFeed();
         });
-
         // 関数定義
         function openModal() {
             document.getElementById('contextModal').style.display = 'block';
         }
-
         function closeModal() {
             document.getElementById('contextModal').style.display = 'none';
             document.getElementById('urlContent').style.display = 'none';
             document.getElementById('addFeedSection').style.display = 'none';
         }
-
         function showUrlContent() {
             const url = `https://rss-reader-3v55.vercel.app/?token=${currentToken}`;
             document.getElementById('shareUrl').href = url;
@@ -450,11 +442,9 @@
                 `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(url)}" alt="QR Code" />`;
             document.getElementById('urlContent').style.display = 'block';
         }
-
         function showAddFeed() {
             document.getElementById('addFeedSection').style.display = 'block';
         }
-
         async function addFeed() {
             const feedUrl = document.getElementById('feedInput').value.trim();
             if (!feedUrl) return;
@@ -469,11 +459,9 @@
                 console.error('フィードの追加に失敗しました:', e);
             }
         }
-
         async function exportOpml() {
             window.location.href = '/api/export_opml';
         }
-
         async function importOPML(file) {
             const reader = new FileReader();
             reader.onload = async (e) => {
@@ -488,7 +476,6 @@
             };
             reader.readAsText(file);
         }
-
         function parseOPML(opmlText) {
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(opmlText, "text/xml");
@@ -505,7 +492,6 @@
             }
             return feeds;
         }
-
         async function subscribeFeeds(feeds) {
             for (const feed of feeds) {
                 try {
@@ -519,7 +505,6 @@
                 }
             }
         }
-
         async function loadAllUnread() {
             try {
                 const response = await fetch('/api/load_all_unread');
@@ -542,32 +527,25 @@
                 console.error('未読記事の読み込みに失敗しました:', e);
             }
         }
-
         function renderArticles() {
             articleList.innerHTML = '';
             articleElements = [];
-
             if (currentFeedArticles.length === 0) {
                 showAllRead();
                 return;
             }
-
             articlesSection.style.display = 'block';
             allRead.style.display = 'none';
             rightEdgeArea.style.display = 'block';
-
             const fragment = document.createDocumentFragment();
-
             currentFeedArticles.forEach((article, index) => {
                 const articleItem = document.createElement('li');
                 articleItem.className = `article-item unread`;
                 articleItem.dataset.index = index;
                 articleItem.dataset.articleId = article.id;
                 articleItem.dataset.starred = article.starred;
-
                 const headerDiv = document.createElement('div');
                 headerDiv.className = 'article-header';
-
                 const starButton = document.createElement('button');
                 starButton.className = `star-btn ${article.starred ? 'starred' : ''}`;
                 starButton.innerHTML = article.starred ? '★' : '☆';
@@ -575,24 +553,19 @@
                     e.stopPropagation();
                     toggleStarred(article.id, !article.starred, starButton, index);
                 };
-
                 const titleDiv = document.createElement('div');
                 titleDiv.className = 'article-title';
-
                 const titleLink = document.createElement('a');
                 titleLink.href = article.url;
                 titleLink.target = '_blank';
                 titleLink.textContent = article.title;
-
                 const dateSpan = document.createElement('span');
                 dateSpan.className = 'article-date';
                 dateSpan.textContent = article.published_at ? new Date(article.published_at).toLocaleString() : '';
-
                 titleDiv.appendChild(titleLink);
                 headerDiv.appendChild(starButton);
                 headerDiv.appendChild(titleDiv);
                 headerDiv.appendChild(dateSpan);
-
                 articleItem.appendChild(headerDiv);
                 articleItem.onclick = (e) => {
                     if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON') {
@@ -601,19 +574,15 @@
                         showSummary(articleItem, article.id, article.content, article.url);
                     }
                 };
-
                 fragment.appendChild(articleItem);
                 articleElements.push(articleItem);
             });
-
             articleList.appendChild(fragment);
             currentArticleIndex = -1;
             selectedIndex = -1;
         }
-
         function navigateArticles(direction) {
             if (articleElements.length === 0) return;
-
             const newIndex = selectedIndex + direction;
             if (newIndex >= 0 && newIndex < articleElements.length) {
                 selectedIndex = newIndex;
@@ -623,7 +592,6 @@
                 showSummary(articleItem, article.id, article.content, article.url);
             }
         }
-
         function updateSelectedItem() {
             articleElements.forEach((item, index) => {
                 if (index === selectedIndex) {
@@ -634,13 +602,11 @@
                 }
             });
         }
-
         async function showSummary(articleItem, articleId, content, url) {
             if (currentSummaryElement) {
                 currentSummaryElement.remove();
                 currentSummaryElement = null;
             }
-
             try {
                 const response = await fetch('/api/fetch_full_content', {
                     method: 'POST',
@@ -649,19 +615,16 @@
                 });
                 const data = await response.json();
                 const fullContent = data.content || content;
-
                 const summaryDiv = document.createElement('div');
                 summaryDiv.className = 'summary';
                 summaryDiv.innerHTML = `<br><br>${fullContent}`;
                 articleItem.appendChild(summaryDiv);
                 currentSummaryElement = summaryDiv;
-
                 await markAsRead(articleId);
             } catch (e) {
                 console.error('記事の詳細取得に失敗しました:', e);
             }
         }
-
         async function toggleStarred(articleId, starred, button, index) {
             try {
                 const response = await fetch('/api/toggle_starred', {
@@ -669,37 +632,15 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id: articleId, starred: starred })
                 });
-
                 if (response.ok) {
                     button.className = `star-btn ${starred ? 'starred' : ''}`;
                     button.innerHTML = starred ? '★' : '☆';
                     articleElements[index].dataset.starred = starred;
-
-                    if (starred) {
-                        if (currentSummaryElement) {
-                            currentSummaryElement.remove();
-                            currentSummaryElement = null;
-                        }
-                        articleElements[index].remove();
-                        articleElements.splice(index, 1);
-                        currentFeedArticles.splice(index, 1);
-                        allUnreadArticles = allUnreadArticles.filter(article => article.id !== articleId);
-
-                        if (selectedIndex >= index) {
-                            selectedIndex--;
-                        }
-                        if (selectedIndex === -1 && articleElements.length > 0) {
-                            selectedIndex = 0;
-                            updateSelectedItem();
-                        }
-                        await markAsRead(articleId);
-                    }
                 }
             } catch (e) {
                 console.error('スターのトグルに失敗しました:', e);
             }
         }
-
         async function toggleStarredForSelected() {
             if (selectedIndex >= 0 && selectedIndex < articleElements.length) {
                 const articleId = articleElements[selectedIndex].dataset.articleId;
@@ -708,13 +649,11 @@
                 await toggleStarred(articleId, !isStarred, starButton, selectedIndex);
             }
         }
-
         function openSelectedArticle() {
             if (selectedIndex >= 0 && selectedIndex < currentFeedArticles.length) {
                 window.open(currentFeedArticles[selectedIndex].url, '_blank');
             }
         }
-
         async function markAsRead(articleId) {
             try {
                 await fetch('/api/mark_as_read', {
@@ -726,25 +665,21 @@
                 console.error('既読マークに失敗しました:', e);
             }
         }
-
-
         async function moveToNextFeed() {
             if (isLoading) return;
             isLoading = true;
-
             try {
                 // 現在のフィードの未読記事を非同期で既読にする（完了を待たない）
                 const markReadPromises = currentFeedArticles.map(article =>
                     markAsRead(article.id)
                 );
-
                 // 非同期処理をバックグラウンドで実行
                 Promise.all(markReadPromises).catch(e => {
                     console.error('既読マーク処理中にエラーが発生しました:', e);
                 });
-
                 // 次のフィードの未読記事を即座に取得・描画
                 allUnreadArticles = allUnreadArticles.filter(article => article.feed_id !== currentFeedId);
+                updateRemainingFeedsIndicator();
                 if (allUnreadArticles.length > 0) {
                     currentFeedId = allUnreadArticles[0].feed_id;
                     currentFeedArticles = allUnreadArticles.filter(article => article.feed_id === currentFeedId);
@@ -761,21 +696,19 @@
             } finally {
                 isLoading = false;
             }
-            function scrollPage(direction) {
-                window.scrollBy({
-                    top: direction === 'up' ? -window.innerHeight + 100 : window.innerHeight - 100,
-                    behavior: 'auto'
-                });
-            }
         }
-
+        function scrollPage(direction) {
+            window.scrollBy({
+                top: direction === 'up' ? -window.innerHeight + 100 : window.innerHeight - 100,
+                behavior: 'auto'
+            });
+        }
         function showAllRead() {
             articlesSection.style.display = 'none';
             allRead.style.display = 'block';
             rightEdgeArea.style.display = 'none';
             remainingFeedsIndicator.style.display = 'none';
         }
-
         function updateRemainingFeedsIndicator() {
             const unreadFeeds = feedsData.filter(feed => feed.unread_count > 0);
             if (unreadFeeds.length > 0) {
@@ -785,7 +718,6 @@
                 remainingFeedsIndicator.style.display = 'none';
             }
         }
-
         document.addEventListener('DOMContentLoaded', loadAllUnread);
     </script>
 </body>
