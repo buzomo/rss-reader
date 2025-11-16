@@ -684,12 +684,13 @@
                 // 次のフィードの未読記事を即座に取得・描画
                 allUnreadArticles = allUnreadArticles.filter(article => article.feed_id !== currentFeedId);
                 updateRemainingFeedsIndicator();
+
                 if (allUnreadArticles.length > 0) {
                     currentFeedId = allUnreadArticles[0].feed_id;
                     currentFeedArticles = allUnreadArticles.filter(article => article.feed_id === currentFeedId);
-                    const currentFeed = feedsData.find(feed => feed.id === currentFeedId);
-                    if (currentFeed) {
-                        currentFeedTitle.textContent = currentFeed.title;
+                    const nextFeed = feedsData.find(feed => feed.id === currentFeedId);
+                    if (nextFeed) {
+                        currentFeedTitle.textContent = nextFeed.title;
                     }
                     renderArticles();
                 } else {
