@@ -423,6 +423,26 @@
             e.preventDefault();
             openModal();
         });
+        // トークンを取得する関数
+        function getToken() {
+            // URLパラメータからトークンを取得
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlToken = urlParams.get('token');
+            if (urlToken) {
+                return urlToken;
+            }
+
+            // Cookieからトークンを取得
+            const cookies = document.cookie.split(';').map(cookie => cookie.trim());
+            for (const cookie of cookies) {
+                const [name, value] = cookie.split('=');
+                if (name === 'token') {
+                    return decodeURIComponent(value);
+                }
+            }
+
+            return "";
+        }
         document.getElementById('fileInput').addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -478,7 +498,7 @@
             document.getElementById('addFeedSection').style.display = 'none';
         }
         function showUrlContent() {
-            const url = `https://rss-reader-3v55.vercel.app/?token=${currentToken}`;
+            const url = `https://rss-reader-3v55.vercel.app/?token=${encodeURIComponent(currentToken)}`;
             document.getElementById('shareUrl').href = url;
             document.getElementById('shareUrl').textContent = url;
             document.getElementById('qrcode').innerHTML =
@@ -788,7 +808,11 @@
             feedProgressBar.setAttribute('aria-label', `未読フィード閲覧進捗 ${p}パーセント`);
         }
         // 初期ロード
-        document.addEventListener('DOMContentLoaded', loadAllUnread);
+        // 初期化時にトークンを設定
+        document.addEventListener('DOMContentLoaded', () => {
+            currentToken = getToken();
+            loadAllUnread();
+        });
     </script>
 </body>
 
