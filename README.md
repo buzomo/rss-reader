@@ -22,7 +22,7 @@
 * [https://rss.poet.blue](https://rss.poet.blue)
 
 ### Kindle Paperwhiteで読む
-1. すでに読んでいる環境(PCなど)から、`https://rss-reader-3v55.vercel.app/?token=あなたのトークン`をコピー
+1. すでに読んでいる環境(PCなど)から、`https://rss.poet.blue/?token=あなたのトークン`をコピー
 2. スマホに1のURLを控える
 3.  Kindle端末から[https://poet.blue](https://poet.blue)にアクセスする
 4.  表示されたQRコードをスマホでスキャンし、2のURLをペーストし、送信
