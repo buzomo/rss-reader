@@ -1,5 +1,6 @@
 - https://rss.poet.blue
 - 購読するとき：https://rss.poet.blue?token=割り振られたトークン&feed_url=フィードのアドレス
+- OPMLの入出力アリ
 - フィードの更新は5分単位
 - スペースキーを押してさくさく既読
 - 未読数表示ナシ
