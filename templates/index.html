@@ -320,6 +320,22 @@
             border: 1px solid var(--border-color);
             border-radius: 4px;
         }
+
+        /* All Read セクションのボタンスタイル */
+        .all-read-button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: var(--modal-button-bg);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            color: var(--modal-text);
+            font-size: 16px;
+        }
+
+        .all-read-button:hover {
+            background-color: var(--modal-button-hover);
+        }
     </style>
 </head>
 
@@ -328,7 +344,6 @@
         <div class="page-up" onclick="scrollPage('up')"></div>
         <div class="page-down" onclick="scrollPage('down')"></div>
     </div>
-
     <div class="container">
         <div id="articlesSection" class="section">
             <h2 id="articleHeader">
@@ -345,7 +360,8 @@
         </div>
         <div id="allRead">
             All Read!!<br>
-            <img src="https://cataas.com/cat" alt="cat">
+            <img src="https://cataas.com/cat" alt="cat"><br>
+            <button class="all-read-button" onclick="openModal()">メニューを開く</button>
         </div>
     </div>
     <input type="file" id="fileInput" accept=".opml,.xml" />
@@ -363,11 +379,14 @@
                 <button id="favs" class="modal-button" onclick="window.location.href='/favs'">スターしたアイテム</button>
                 <button id="findEntriesBtn" class="modal-button" onclick="window.location.href='/find'">🔍
                     過去のエントリを検索...</button>
+                <button id="githubOpmlBtn" class="modal-button"
+                    onclick="window.open('https://github.com/buzomo/rss-reader')">📤 OPMLエクスポート</button>
             </div>
             <div id="urlContent" style="display: none;">
                 <h3>引き継ぎURL</h3>
                 <a id="shareUrl" target="_blank"></a>
                 <div id="qrcode"></div>
+                <p>このURLをRSSリーダーアプリに登録して、このRSSリーダーを購読できます。</p>
             </div>
             <div id="addFeedSection" style="display: none;">
                 <h3>フィードの追加</h3>
@@ -389,19 +408,16 @@
         let allUnreadArticles = [];
         let currentFeedArticles = [];
         let isLoading = false;
-
         // 進捗用
         let totalUnreadFeeds = 0; // 初回ロード時に設定
         const feedProgressBar = document.getElementById('feedProgressBar');
         const feedProgressContainer = document.getElementById('feedProgressContainer');
-
         // DOM要素のキャッシュ
         const articleList = document.getElementById('articleList');
         const articlesSection = document.getElementById('articlesSection');
         const allRead = document.getElementById('allRead');
         const rightEdgeArea = document.getElementById('rightEdgeArea');
         const currentFeedTitle = document.getElementById('currentFeedTitle');
-
         // イベントリスナー
         document.addEventListener('contextmenu', (e) => {
             e.preventDefault();
@@ -452,7 +468,6 @@
             }
             await moveToNextFeed();
         });
-
         // 関数定義
         function openModal() {
             document.getElementById('contextModal').style.display = 'block';
@@ -533,7 +548,6 @@
                 }
             }
         }
-
         // ロードして初期化
         async function loadAllUnread() {
             try {
@@ -541,11 +555,9 @@
                 const data = await response.json();
                 allUnreadArticles = data.articles || [];
                 feedsData = data.feeds || [];
-
                 // 初回の未読フィード総数を設定（allUnreadArticlesのfeed_idのユニーク数）
                 const unreadFeedIds = new Set(allUnreadArticles.map(a => a.feed_id));
                 totalUnreadFeeds = unreadFeedIds.size;
-
                 if (allUnreadArticles.length > 0) {
                     currentFeedId = allUnreadArticles[0].feed_id;
                     currentFeedArticles = allUnreadArticles.filter(article => article.feed_id === currentFeedId);
@@ -562,7 +574,6 @@
                 console.error('未読記事の読み込みに失敗しました:', e);
             }
         }
-
         function renderArticles() {
             articleList.innerHTML = '';
             articleElements = [];
@@ -617,7 +628,6 @@
             currentArticleIndex = -1;
             selectedIndex = -1;
         }
-
         function navigateArticles(direction) {
             if (articleElements.length === 0) return;
             const newIndex = selectedIndex + direction;
@@ -629,7 +639,6 @@
                 showSummary(articleItem, article.id, article.content, article.url);
             }
         }
-
         function updateSelectedItem() {
             articleElements.forEach((item, index) => {
                 if (index === selectedIndex) {
@@ -640,7 +649,6 @@
                 }
             });
         }
-
         async function showSummary(articleItem, articleId, content, url) {
             if (currentSummaryElement) {
                 currentSummaryElement.remove();
@@ -664,7 +672,6 @@
                 console.error('記事の詳細取得に失敗しました:', e);
             }
         }
-
         async function toggleStarred(articleId, starred, button, index) {
             try {
                 const response = await fetch('/api/toggle_starred', {
@@ -681,7 +688,6 @@
                 console.error('スターのトグルに失敗しました:', e);
             }
         }
-
         async function toggleStarredForSelected() {
             if (selectedIndex >= 0 && selectedIndex < articleElements.length) {
                 const articleId = articleElements[selectedIndex].dataset.articleId;
@@ -690,13 +696,11 @@
                 await toggleStarred(articleId, !isStarred, starButton, selectedIndex);
             }
         }
-
         function openSelectedArticle() {
             if (selectedIndex >= 0 && selectedIndex < currentFeedArticles.length) {
                 window.open(currentFeedArticles[selectedIndex].url, '_blank');
             }
         }
-
         async function markAsRead(articleId) {
             try {
                 await fetch('/api/mark_as_read', {
@@ -708,7 +712,6 @@
                 console.error('既読マークに失敗しました:', e);
             }
         }
-
         // 次のフィードへ移動（閲覧進捗が増える）
         async function moveToNextFeed() {
             if (isLoading) return;
@@ -722,10 +725,8 @@
                 Promise.all(markReadPromises).catch(e => {
                     console.error('既読マーク処理中にエラーが発生しました:', e);
                 });
-
                 // allUnreadArticles から現在フィードに属する記事を削除（表示しているフィードを"消化"した扱い）
                 allUnreadArticles = allUnreadArticles.filter(article => article.feed_id !== currentFeedId);
-
                 // 次のフィードの未読記事を即座に取得・描画
                 if (allUnreadArticles.length > 0) {
                     currentFeedId = allUnreadArticles[0].feed_id;
@@ -745,14 +746,12 @@
                 isLoading = false;
             }
         }
-
         function scrollPage(direction) {
             window.scrollBy({
                 top: direction === 'up' ? -window.innerHeight + 100 : window.innerHeight - 100,
                 behavior: 'auto'
             });
         }
-
         function showAllRead() {
             articlesSection.style.display = 'none';
             allRead.style.display = 'block';
@@ -762,24 +761,19 @@
             // 小さめに非表示化して視覚的に邪魔にならないように
             feedProgressContainer.style.display = 'none';
         }
-
         // 進捗関連
         function updateFeedProgress() {
             // 残り未読フィードの数（allUnreadArticles のユニーク feed_id 数）
             const remainingFeedIds = new Set(allUnreadArticles.map(a => a.feed_id));
             const remaining = remainingFeedIds.size;
-
             // 初回ロード時など totalUnreadFeeds が 0 の場合は remaining を総数にする（安全措置）
             if (totalUnreadFeeds === 0) {
                 totalUnreadFeeds = remaining;
             }
-
             // 進捗率（閲覧済みフィード数 / 総未読フィード数）
             const visited = Math.max(0, totalUnreadFeeds - remaining);
             const percent = totalUnreadFeeds > 0 ? Math.round((visited / totalUnreadFeeds) * 100) : 100;
-
             setProgress(percent);
-
             // 進捗バーの表示制御
             if (totalUnreadFeeds === 0) {
                 feedProgressContainer.style.display = 'none';
@@ -787,14 +781,12 @@
                 feedProgressContainer.style.display = 'block';
             }
         }
-
         function setProgress(percent) {
             const p = Math.max(0, Math.min(100, percent));
             feedProgressBar.style.width = p + '%';
             feedProgressBar.setAttribute('aria-valuenow', String(p));
             feedProgressBar.setAttribute('aria-label', `未読フィード閲覧進捗 ${p}パーセント`);
         }
-
         // 初期ロード
         document.addEventListener('DOMContentLoaded', loadAllUnread);
     </script>
