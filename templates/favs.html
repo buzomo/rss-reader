@@ -127,7 +127,7 @@
                                 </div>
                             </div>
                             <div class="mt-2">
-                                {{ article.article_content|truncate(200) }}
+                                {{ (article.article_content or "")|truncate(200) }}
                             </div>
                         </div>
                         {% endfor %}
