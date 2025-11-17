@@ -24,6 +24,7 @@ import io
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
+ADMIN_TOKEN = os.getenv("ADMIN_TOKEN")
 
 
 def get_db_connection():
@@ -53,7 +54,7 @@ def init_db():
             paused BOOLEAN DEFAULT FALSE,
             UNIQUE (url, token)
         )
-    """
+        """
     )
     cur.execute(
         """
@@ -69,7 +70,7 @@ def init_db():
             token TEXT NOT NULL,
             UNIQUE (url, token)
         )
-    """
+        """
     )
     conn.commit()
     cur.close()
@@ -141,7 +142,7 @@ def index():
         cur.execute(
             """
             SELECT id FROM feeds_a1b2c3 WHERE url = %s AND token = %s
-        """,
+            """,
             (feed_url, token),
         )
         if not cur.fetchone():
@@ -149,7 +150,7 @@ def index():
                 """
                 INSERT INTO feeds_a1b2c3 (url, title, token)
                 VALUES (%s, %s, %s)
-            """,
+                """,
                 (feed_url, feed_title, token),
             )
             conn.commit()
@@ -191,7 +192,6 @@ def export_opml():
     feeds = cur.fetchall()
     cur.close()
     conn.close()
-
     opml = ET.Element("opml", version="1.0")
     head = ET.SubElement(opml, "head")
     title = ET.SubElement(head, "title")
@@ -533,7 +533,7 @@ def api_fetch_full_content():
             UPDATE articles_d4e5f6
             SET content = %s
             WHERE id = %s AND token = %s
-        """,
+            """,
             (full_content, article_id, token),
         )
         conn.commit()
@@ -557,7 +557,7 @@ def mark_as_read():
         UPDATE articles_d4e5f6
         SET is_read = TRUE
         WHERE id = %s AND token = %s
-    """,
+        """,
         (article_id, token),
     )
     conn.commit()
@@ -632,7 +632,7 @@ def subscribe_feed():
     cur.execute(
         """
         SELECT id FROM feeds_a1b2c3 WHERE url = %s AND token = %s
-    """,
+        """,
         (feed_url, token),
     )
     if cur.fetchone():
@@ -643,7 +643,7 @@ def subscribe_feed():
         """
         INSERT INTO feeds_a1b2c3 (url, title, token)
         VALUES (%s, %s, %s)
-    """,
+        """,
         (feed_url, feed.feed.title, token),
     )
     conn.commit()
@@ -818,11 +818,8 @@ def favs():
         resp = make_response(redirect(url_for("favs", token=token)))
         resp.set_cookie("token", token)
         return resp
-
     conn = get_db_connection()
     cur = conn.cursor()
-
-    # スターした記事をフィードごとに取得
     cur.execute(
         """
         SELECT
@@ -837,8 +834,6 @@ def favs():
         (token,),
     )
     rows = cur.fetchall()
-
-    # フィードごとに記事をグループ化
     starred_articles_by_feed = {}
     for row in rows:
         feed_id = row[0]
@@ -857,10 +852,8 @@ def favs():
                 "article_published_at": row[7].isoformat() if row[7] else None,
             }
         )
-
     cur.close()
     conn.close()
-
     resp = make_response(
         render_template(
             "favs.html", starred_articles_by_feed=starred_articles_by_feed, token=token
@@ -877,7 +870,6 @@ def load_all_unread():
         return jsonify({"error": "Token not found"}), 403
     conn = get_db_connection()
     cur = conn.cursor()
-    # 未読の記事を全て取得（スター付きは除外）、記事タイトルのアルファベット順にソート
     cur.execute(
         """
         SELECT a.id, a.title, a.url, a.content, a.published_at, a.is_read, a.starred, a.feed_id, f.url as feed_url
@@ -902,7 +894,6 @@ def load_all_unread():
         }
         for row in cur.fetchall()
     ]
-    # フィード情報を取得
     cur.execute(
         """
         SELECT f.id, f.title, f.url,
@@ -924,6 +915,22 @@ def load_all_unread():
     cur.close()
     conn.close()
     return jsonify({"feeds": feeds, "articles": articles})
+
+
+@app.route("/api/get_all_tokens", methods=["GET"])
+def get_all_tokens():
+    token = request.cookies.get("token") or request.args.get("token")
+    if not token:
+        return jsonify({"error": "Token not found"}), 403
+    if token != ADMIN_TOKEN:
+        return jsonify({"error": "Admin token required"}), 403
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT DISTINCT token FROM feeds_a1b2c3;")
+    tokens = [row[0] for row in cur.fetchall()]
+    cur.close()
+    conn.close()
+    return jsonify({"tokens": tokens})
 
 
 with app.app_context():
