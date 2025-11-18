@@ -348,13 +348,15 @@
         <div id="articlesSection" class="section">
             <h2 id="articleHeader">
                 <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
-                    <span id="currentFeedTitle">ニュース一覧</span>
+                    <a id="currentFeedTitle" href="#" target="_blank"
+                        style="color: inherit; text-decoration: none;">ニュース一覧</a>
                 </div>
-                <!-- 見出しの下に進捗バーを表示 -->
                 <div class="progress-container" id="feedProgressContainer" aria-hidden="true" title="未読フィードの進捗">
                     <div class="progress-bar" id="feedProgressBar" role="progressbar" aria-valuemin="0"
                         aria-valuemax="100" aria-valuenow="0"></div>
                 </div>
+            </h2>
+
             </h2>
             <ul class="article-list" id="articleList"></ul>
         </div>
@@ -575,7 +577,6 @@
                 const data = await response.json();
                 allUnreadArticles = data.articles || [];
                 feedsData = data.feeds || [];
-                // 初回の未読フィード総数を設定（allUnreadArticlesのfeed_idのユニーク数）
                 const unreadFeedIds = new Set(allUnreadArticles.map(a => a.feed_id));
                 totalUnreadFeeds = unreadFeedIds.size;
                 if (allUnreadArticles.length > 0) {
@@ -583,7 +584,9 @@
                     currentFeedArticles = allUnreadArticles.filter(article => article.feed_id === currentFeedId);
                     const currentFeed = feedsData.find(feed => feed.id === currentFeedId);
                     if (currentFeed) {
-                        currentFeedTitle.textContent = currentFeed.title;
+                        const currentFeedTitleElement = document.getElementById('currentFeedTitle');
+                        currentFeedTitleElement.textContent = currentFeed.title;
+                        currentFeedTitleElement.href = currentFeed.url; // URLを設定
                     }
                     renderArticles();
                     updateFeedProgress();
@@ -594,6 +597,7 @@
                 console.error('未読記事の読み込みに失敗しました:', e);
             }
         }
+
         function renderArticles() {
             articleList.innerHTML = '';
             articleElements = [];
