@@ -4,814 +4,194 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RSS Reader</title>
+    <title>スターしたアイテム</title>
     <link rel="icon"
-        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E✉%3C/text%3E%3C/svg%3E"
+        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E⭐️%3C/text%3E%3C/svg%3E"
         type="image/svg+xml">
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        /* スタイルは変更なし（＋プログレスバー用追加） */
-        html,
-        body {
-            height: 100%;
-        }
-
-        :root {
-            --bg-color: #f4f4f4;
-            --container-bg: white;
-            --article-bg: white;
-            --article-hover: #f9f9f9;
-            --article-selected: #ffebee;
-            --text-color: #333;
-            --text-secondary: #999;
-            --border-color: #eee;
-            --summary-bg: #fefefe;
-            --summary-border: #e0e0e0;
-            --modal-bg: #fefefe;
-            --modal-text: #333;
-            --modal-button-bg: #f0f0f0;
-            --modal-button-hover: #e0e0e0;
-            --progress-track: #e9e9e9;
-            --progress-fill: #4caf50;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg-color: #121212;
-                --container-bg: #1e1e1e;
-                --article-bg: #2d2d2d;
-                --article-hover: #3a3a3a;
-                --article-selected: #422d2d;
-                --text-color: #e0e0e0;
-                --text-secondary: #aaaaaa;
-                --border-color: #444;
-                --summary-bg: #252525;
-                --summary-border: #555;
-                --modal-bg: #2d2d2d;
-                --modal-text: #e0e0e0;
-                --modal-button-bg: #3a3a3a;
-                --modal-button-hover: #4a4a4a;
-                --progress-track: #2a2a2a;
-                --progress-fill: #66bb6a;
-            }
-        }
-
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            padding-bottom: 80px;
-        }
-
-        .section {
-            background-color: var(--container-bg);
-            border-radius: 5px;
-            padding: 15px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 5px transparent;
-        }
-
-        .article-list {
-            list-style: none;
-            padding: 0;
-        }
-
-        .article-item {
-            padding: 12px 10px;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            flex-direction: column;
-            background-color: var(--article-bg);
-        }
-
-        .article-item:hover {
-            background-color: var(--article-hover);
-        }
-
-        .article-item.selected {
-            background-color: var(--article-selected);
-        }
-
-        .unread {
-            font-weight: bold;
-            color: var(--text-color);
-        }
-
-        .read {
-            color: var(--text-secondary);
-        }
-
-        .article-header {
-            display: flex;
-            align-items: flex-start;
-            margin-bottom: 8px;
-        }
-
-        .star-btn {
-            margin-right: 10px;
-            font-size: 20px;
+        .feed-group {
+            margin-bottom: 0.25rem;
+            padding: 0.5rem;
+            border-radius: 0.25rem;
             cursor: pointer;
-            background: none;
-            border: none;
-            min-width: 30px;
-            line-height: 1;
-            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.2;
         }
 
-        .star-btn.starred {
-            color: #ffd700;
+        .feed-group:hover {
+            background-color: #f8f9fa;
+        }
+
+        .feed-group.active {
+            background-color: #e9ecef;
+        }
+
+        .article-card {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background-color: #f8f9fa;
+            border-radius: 0.25rem;
+            border: 1px solid #dee2e6;
         }
 
         .article-title {
-            flex-grow: 1;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: #0d6efd;
         }
 
-        .article-title a {
+        .article-title:hover {
+            color: #0b5ed7;
+        }
+
+        .article-meta {
+            color: #6c757d;
+            font-size: 0.85rem;
+        }
+
+        .unstar-btn {
+            color: #dc3545;
+            border-color: #dc3545;
+        }
+
+        .unstar-btn:hover {
+            color: #fff;
+            background-color: #dc3545;
+        }
+
+        .pane {
+            height: calc(100vh - 60px);
+            overflow-y: auto;
+        }
+
+        .feed-list {
+            list-style: none;
+            padding-left: 0;
+            margin-bottom: 0;
+        }
+
+        .feed-list li {
+            padding: 0;
+        }
+
+        .feed-title {
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
             color: inherit;
             text-decoration: none;
-            font-size: 16px;
         }
 
-        .article-title a:hover {
+        .feed-title:hover {
+            color: #0d6efd;
             text-decoration: underline;
-        }
-
-        .article-date {
-            color: var(--text-secondary);
-            font-size: 14px;
-            margin-left: 10px;
-            white-space: nowrap;
-        }
-
-        .summary {
-            margin-top: 12px;
-            font-size: 16px;
-            color: var(--text-color);
-            line-height: 1.8;
-            padding: 12px;
-            background-color: var(--summary-bg);
-            border-radius: 4px;
-            border-left: 4px solid var(--summary-border);
-        }
-
-        h2 {
-            margin-bottom: 6px;
-            display: flex;
-            align-items: center;
-            color: var(--text-color);
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 8px;
-        }
-
-        #fileInput {
-            display: none;
-        }
-
-        #rightEdgeArea {
-            position: fixed;
-            top: 0;
-            right: 0;
-            width: 40px;
-            height: 100vh;
-            z-index: 100;
-            pointer-events: auto;
-        }
-
-        #rightEdgeArea .page-up {
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 40px;
-            height: 50vh;
-        }
-
-        #rightEdgeArea .page-down {
-            position: absolute;
-            top: 50vh;
-            right: 0;
-            width: 40px;
-            height: 50vh;
-        }
-
-        #allRead {
-            display: none;
-            text-align: center;
-            margin-top: 100px;
-            font-size: 24px;
-            font-weight: bold;
-            color: var(--text-color);
-        }
-
-        #allRead img {
-            margin-top: 20px;
-            max-width: 300px;
-        }
-
-        /* プログレスバー（見出し下） */
-        .progress-container {
-            width: 100%;
-            height: 4px;
-            background-color: var(--progress-track);
-            border-radius: 4px;
-            overflow: hidden;
-            margin-top: 6px;
-        }
-
-        .progress-bar {
-            height: 100%;
-            width: 0%;
-            background-color: var(--progress-fill);
-            transition: width 300ms ease;
-        }
-
-        /* モーダルスタイル */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1001;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-        }
-
-        .modal-content {
-            background-color: var(--modal-bg);
-            margin: 10% auto;
-            padding: 20px;
-            border-radius: 5px;
-            width: 80%;
-            max-width: 500px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-            color: var(--modal-text);
-        }
-
-        .close {
-            color: var(--text-secondary);
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .close:hover {
-            color: var(--text-color);
-        }
-
-        .modal-buttons {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-top: 20px;
-        }
-
-        .modal-button {
-            padding: 10px;
-            background-color: var(--modal-button-bg);
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            color: var(--modal-text);
-        }
-
-        .modal-button:hover {
-            background-color: var(--modal-button-hover);
-        }
-
-        #urlContent {
-            margin-top: 20px;
-            text-align: center;
-        }
-
-        #shareUrl {
-            word-break: break-all;
-            display: block;
-            margin-bottom: 10px;
-            color: var(--modal-text);
-        }
-
-        #qrcode {
-            margin: 0 auto;
-            width: 150px;
-            height: 150px;
-        }
-
-        #qrcode img {
-            width: 100%;
-            height: 100%;
-        }
-
-        #feedInput {
-            width: 100%;
-            padding: 8px;
-            margin-top: 10px;
-            box-sizing: border-box;
-            background-color: var(--container-bg);
-            color: var(--text-color);
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-        }
-
-        /* All Read セクションのボタンスタイル */
-        .all-read-button {
-            margin-top: 20px;
-            padding: 10px 20px;
-            background-color: var(--modal-button-bg);
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            color: var(--modal-text);
-            font-size: 16px;
-        }
-
-        .all-read-button:hover {
-            background-color: var(--modal-button-hover);
         }
     </style>
 </head>
 
 <body>
-    <div id="rightEdgeArea">
-        <div class="page-up" onclick="scrollPage('up')"></div>
-        <div class="page-down" onclick="scrollPage('down')"></div>
-    </div>
-    <div class="container">
-        <div id="articlesSection" class="section">
-            <h2 id="articleHeader">
-                <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
-                    <span id="currentFeedTitle">ニュース一覧</span>
+    <div class="container-fluid py-3">
+        <div class="row">
+            <!-- 左ペイン: フィード一覧 -->
+            <div class="col-md-4 pane border-end">
+                <ul class="feed-list">
+                    {% if starred_articles_by_feed %}
+                    {% for feed_id, feed_info in starred_articles_by_feed.items() %}
+                    <li class="feed-group" data-feed-id="{{ feed_id }}">
+                        <a href="{{ feed_info.feed_url }}" target="_blank" class="feed-title text-decoration-none">{{
+                            feed_info.feed_title }}</a>
+                    </li>
+                    {% endfor %}
+                    {% else %}
+                    <div class="alert alert-info">
+                        スターした記事はありません。
+                    </div>
+                    {% endif %}
+                </ul>
+            </div>
+            <!-- 右ペイン: 記事一覧 -->
+            <div class="col-md-8 pane">
+                <div id="article-container">
+                    {% if starred_articles_by_feed %}
+                    {% for feed_id, feed_info in starred_articles_by_feed.items() %}
+                    <div class="feed-articles" data-feed-id="{{ feed_id }}" {% if loop.first %}style="display: block;"
+                        {% else %}style="display: none;" {% endif %}>
+                        {% for article in feed_info.articles %}
+                        <div class="article-card">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <a href="{{ article.article_url }}" target="_blank"
+                                        class="article-title text-decoration-none">{{ article.article_title }}</a>
+                                    <div class="article-meta">
+                                        {{ article.article_published_at|default("公開日不明", true) }}
+                                    </div>
+                                </div>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-danger unstar-btn"
+                                        data-article-id="{{ article.article_id }}">★ 解除</button>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                {{ (article.article_content or "")|truncate(200) }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <div class="alert alert-info">
+                        スターした記事はありません。
+                    </div>
+                    {% endif %}
                 </div>
-                <!-- 見出しの下に進捗バーを表示 -->
-                <div class="progress-container" id="feedProgressContainer" aria-hidden="true" title="未読フィードの進捗">
-                    <div class="progress-bar" id="feedProgressBar" role="progressbar" aria-valuemin="0"
-                        aria-valuemax="100" aria-valuenow="0"></div>
-                </div>
-            </h2>
-            <ul class="article-list" id="articleList"></ul>
-        </div>
-        <div id="allRead">
-            All Read!!<br>
-            <img src="https://cataas.com/cat" alt="cat"><br>
-            <button class="all-read-button" onclick="openModal()">メニューを開く</button>
-        </div>
-    </div>
-    <input type="file" id="fileInput" accept=".opml,.xml" />
-    <!-- モーダル -->
-    <div id="contextModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <h3>メニュー</h3>
-            <div class="modal-buttons">
-                <button id="showUrlBtn" class="modal-button" onclick="showUrlContent()">🔗 引き継ぎURLを表示</button><br>
-                <button id="addFeedBtn" class="modal-button" onclick="showAddFeed()">📥 フィードの追加</button>
-                <button id="importOpmlBtn" class="modal-button"
-                    onclick="document.getElementById('fileInput').click()">📄 OPML取り込み</button>
-                <button id="exportOpmlBtn" class="modal-button" onclick="exportOpml()">📤 OPMLエクスポート</button><br>
-                <button id="favs" class="modal-button" onclick="window.location.href='/favs'">★ スターしたアイテム</button>
-                <button id="findEntriesBtn" class="modal-button" onclick="window.location.href='/find'">🔍
-                    過去のエントリを検索...</button>
-                <button id="githubOpmlBtn" class="modal-button"
-                    onclick="window.open('https://github.com/buzomo/rss-reader')">🐙GitHubで見る</button>
-            </div>
-            <div id="urlContent" style="display: none;">
-                <h3>引き継ぎURL</h3>
-                <a id="shareUrl" target="_blank"></a>
-                <div id="qrcode"></div>
-                <p>ほかの端末・ブラウザで読み取ると購読を引き継げます</p>
-            </div>
-            <div id="addFeedSection" style="display: none;">
-                <h3>フィードの追加</h3>
-                <input type="text" id="feedInput" placeholder="フィードのURLを入力" />
-                <button onclick="addFeed()">追加</button>
             </div>
         </div>
     </div>
+    <!-- Bootstrap 5 JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // グローバル変数
-        let currentToken = "";
-        let currentFeedId = null;
-        let currentSummaryElement = null;
-        let currentArticleIndex = -1;
-        let articleElements = [];
-        let articlesData = [];
-        let selectedIndex = -1;
-        let feedsData = [];
-        let allUnreadArticles = [];
-        let currentFeedArticles = [];
-        let isLoading = false;
-        // 進捗用
-        let totalUnreadFeeds = 0; // 初回ロード時に設定
-        const feedProgressBar = document.getElementById('feedProgressBar');
-        const feedProgressContainer = document.getElementById('feedProgressContainer');
-        // DOM要素のキャッシュ
-        const articleList = document.getElementById('articleList');
-        const articlesSection = document.getElementById('articlesSection');
-        const allRead = document.getElementById('allRead');
-        const rightEdgeArea = document.getElementById('rightEdgeArea');
-        const currentFeedTitle = document.getElementById('currentFeedTitle');
-        // イベントリスナー
-        document.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            openModal();
-        });
-        // トークンを取得する関数
-        function getToken() {
-            // URLパラメータからトークンを取得
-            const urlParams = new URLSearchParams(window.location.search);
-            const urlToken = urlParams.get('token');
-            if (urlToken) {
-                return urlToken;
-            }
-
-            // Cookieからトークンを取得
-            const cookies = document.cookie.split(';').map(cookie => cookie.trim());
-            for (const cookie of cookies) {
-                const [name, value] = cookie.split('=');
-                if (name === 'token') {
-                    return decodeURIComponent(value);
-                }
-            }
-
-            return "";
-        }
-        document.getElementById('fileInput').addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            if (!file.name.match(/\.(opml|xml)$/i)) {
-                console.log('OPMLファイル (.opml, .xml) を選択してください。');
-                return;
-            }
-            importOPML(file);
-            e.target.value = '';
-        });
-        document.addEventListener('keydown', async (e) => {
-            if (document.activeElement.tagName === 'INPUT') return;
-            switch (e.key) {
-                case 'j':
-                    e.preventDefault();
-                    navigateArticles(1);
-                    break;
-                case 'k':
-                    e.preventDefault();
-                    navigateArticles(-1);
-                    break;
-                case 's':
-                    e.preventDefault();
-                    toggleStarredForSelected();
-                    break;
-                case 'o':
-                    e.preventDefault();
-                    openSelectedArticle();
-                    break;
-                case 'a':
-                    e.preventDefault();
-                    await moveToNextFeed();
-                    break;
-                case ' ':
-                    e.preventDefault();
-                    await moveToNextFeed();
-                    break;
-            }
-        });
-        document.body.addEventListener('click', async (e) => {
-            if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.closest('.modal')) {
-                return;
-            }
-            await moveToNextFeed();
-        });
-        // 関数定義
-        function openModal() {
-            document.getElementById('contextModal').style.display = 'block';
-        }
-        function closeModal() {
-            document.getElementById('contextModal').style.display = 'none';
-            document.getElementById('urlContent').style.display = 'none';
-            document.getElementById('addFeedSection').style.display = 'none';
-        }
-        function showUrlContent() {
-            const url = `https://rss-reader-3v55.vercel.app/?token=${encodeURIComponent(currentToken)}`;
-            document.getElementById('shareUrl').href = url;
-            document.getElementById('shareUrl').textContent = url;
-            document.getElementById('qrcode').innerHTML =
-                `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(url)}" alt="QR Code" />`;
-            document.getElementById('urlContent').style.display = 'block';
-        }
-        function showAddFeed() {
-            document.getElementById('addFeedSection').style.display = 'block';
-        }
-        async function addFeed() {
-            const feedUrl = document.getElementById('feedInput').value.trim();
-            if (!feedUrl) return;
-            try {
-                await fetch('/api/add_feed', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url: feedUrl })
+        // フィード選択時のイベントリスナー
+        document.querySelectorAll('.feed-group').forEach(group => {
+            group.addEventListener('click', (e) => {
+                document.querySelectorAll('.feed-group').forEach(g => g.classList.remove('active'));
+                e.currentTarget.classList.add('active');
+                const feedId = e.currentTarget.dataset.feedId;
+                document.querySelectorAll('.feed-articles').forEach(container => {
+                    container.style.display = container.dataset.feedId === feedId ? 'block' : 'none';
                 });
-                location.reload();
-            } catch (e) {
-                console.error('フィードの追加に失敗しました:', e);
-            }
-        }
-        async function exportOpml() {
-            window.location.href = '/api/export_opml';
-        }
-        async function importOPML(file) {
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                const opmlText = e.target.result;
-                const feeds = parseOPML(opmlText);
-                if (feeds.length === 0) {
-                    console.log('有効なフィードが見つかりませんでした。');
-                    return;
-                }
-                await subscribeFeeds(feeds);
-                location.reload();
-            };
-            reader.readAsText(file);
-        }
-        function parseOPML(opmlText) {
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(opmlText, "text/xml");
-            const outlines = xmlDoc.getElementsByTagName("outline");
-            const feeds = [];
-            for (let i = 0; i < outlines.length; i++) {
-                const outline = outlines[i];
-                if (outline.hasAttribute("xmlUrl")) {
-                    feeds.push({
-                        title: outline.hasAttribute("title") ? outline.getAttribute("title") : "Untitled Feed",
-                        url: outline.getAttribute("xmlUrl")
-                    });
-                }
-            }
-            return feeds;
-        }
-        async function subscribeFeeds(feeds) {
-            for (const feed of feeds) {
-                try {
-                    await fetch('/api/add_feed', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ url: feed.url })
-                    });
-                } catch (e) {
-                    console.error(`Failed to subscribe ${feed.url}:`, e);
-                }
-            }
-        }
-        // ロードして初期化
-        async function loadAllUnread() {
-            try {
-                const response = await fetch('/api/load_all_unread');
-                const data = await response.json();
-                allUnreadArticles = data.articles || [];
-                feedsData = data.feeds || [];
-                // 初回の未読フィード総数を設定（allUnreadArticlesのfeed_idのユニーク数）
-                const unreadFeedIds = new Set(allUnreadArticles.map(a => a.feed_id));
-                totalUnreadFeeds = unreadFeedIds.size;
-                if (allUnreadArticles.length > 0) {
-                    currentFeedId = allUnreadArticles[0].feed_id;
-                    currentFeedArticles = allUnreadArticles.filter(article => article.feed_id === currentFeedId);
-                    const currentFeed = feedsData.find(feed => feed.id === currentFeedId);
-                    if (currentFeed) {
-                        currentFeedTitle.textContent = currentFeed.title;
-                    }
-                    renderArticles();
-                    updateFeedProgress();
-                } else {
-                    showAllRead();
-                }
-            } catch (e) {
-                console.error('未読記事の読み込みに失敗しました:', e);
-            }
-        }
-        function renderArticles() {
-            articleList.innerHTML = '';
-            articleElements = [];
-            if (currentFeedArticles.length === 0) {
-                showAllRead();
-                return;
-            }
-            articlesSection.style.display = 'block';
-            allRead.style.display = 'none';
-            rightEdgeArea.style.display = 'block';
-            const fragment = document.createDocumentFragment();
-            currentFeedArticles.forEach((article, index) => {
-                const articleItem = document.createElement('li');
-                articleItem.className = `article-item unread`;
-                articleItem.dataset.index = index;
-                articleItem.dataset.articleId = article.id;
-                articleItem.dataset.starred = article.starred;
-                const headerDiv = document.createElement('div');
-                headerDiv.className = 'article-header';
-                const starButton = document.createElement('button');
-                starButton.className = `star-btn ${article.starred ? 'starred' : ''}`;
-                starButton.innerHTML = article.starred ? '★' : '☆';
-                starButton.onclick = (e) => {
-                    e.stopPropagation();
-                    toggleStarred(article.id, !article.starred, starButton, index);
-                };
-                const titleDiv = document.createElement('div');
-                titleDiv.className = 'article-title';
-                const titleLink = document.createElement('a');
-                titleLink.href = article.url;
-                titleLink.target = '_blank';
-                titleLink.textContent = article.title;
-                const dateSpan = document.createElement('span');
-                dateSpan.className = 'article-date';
-                dateSpan.textContent = article.published_at ? new Date(article.published_at).toLocaleString() : '';
-                titleDiv.appendChild(titleLink);
-                headerDiv.appendChild(starButton);
-                headerDiv.appendChild(titleDiv);
-                headerDiv.appendChild(dateSpan);
-                articleItem.appendChild(headerDiv);
-                articleItem.onclick = (e) => {
-                    if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON') {
-                        selectedIndex = index;
-                        updateSelectedItem();
-                        showSummary(articleItem, article.id, article.content, article.url);
-                    }
-                };
-                fragment.appendChild(articleItem);
-                articleElements.push(articleItem);
             });
-            articleList.appendChild(fragment);
-            currentArticleIndex = -1;
-            selectedIndex = -1;
-        }
-        function navigateArticles(direction) {
-            if (articleElements.length === 0) return;
-            const newIndex = selectedIndex + direction;
-            if (newIndex >= 0 && newIndex < articleElements.length) {
-                selectedIndex = newIndex;
-                updateSelectedItem();
-                const article = currentFeedArticles[selectedIndex];
-                const articleItem = articleElements[selectedIndex];
-                showSummary(articleItem, article.id, article.content, article.url);
-            }
-        }
-        function updateSelectedItem() {
-            articleElements.forEach((item, index) => {
-                if (index === selectedIndex) {
-                    item.classList.add('selected');
-                    item.scrollIntoView({ behavior: 'auto', block: 'nearest' });
-                } else {
-                    item.classList.remove('selected');
-                }
-            });
-        }
-        async function showSummary(articleItem, articleId, content, url) {
-            if (currentSummaryElement) {
-                currentSummaryElement.remove();
-                currentSummaryElement = null;
-            }
-            try {
-                const response = await fetch('/api/fetch_full_content', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ article_id: articleId })
+            group.addEventListener('mouseenter', (e) => {
+                document.querySelectorAll('.feed-group').forEach(g => g.classList.remove('active'));
+                e.currentTarget.classList.add('active');
+                const feedId = e.currentTarget.dataset.feedId;
+                document.querySelectorAll('.feed-articles').forEach(container => {
+                    container.style.display = container.dataset.feedId === feedId ? 'block' : 'none';
                 });
-                const data = await response.json();
-                const fullContent = data.content || content;
-                const summaryDiv = document.createElement('div');
-                summaryDiv.className = 'summary';
-                summaryDiv.innerHTML = `<br><br>${fullContent}`;
-                articleItem.appendChild(summaryDiv);
-                currentSummaryElement = summaryDiv;
-                await markAsRead(articleId);
-            } catch (e) {
-                console.error('記事の詳細取得に失敗しました:', e);
-            }
-        }
-        async function toggleStarred(articleId, starred, button, index) {
-            try {
+            });
+        });
+        // スター解除ボタンのイベントリスナー
+        document.querySelectorAll('.unstar-btn').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const articleId = e.target.dataset.articleId;
                 const response = await fetch('/api/toggle_starred', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: articleId, starred: starred })
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        id: articleId,
+                        starred: false
+                    })
                 });
                 if (response.ok) {
-                    button.className = `star-btn ${starred ? 'starred' : ''}`;
-                    button.innerHTML = starred ? '★' : '☆';
-                    articleElements[index].dataset.starred = starred;
-                }
-            } catch (e) {
-                console.error('スターのトグルに失敗しました:', e);
-            }
-        }
-        async function toggleStarredForSelected() {
-            if (selectedIndex >= 0 && selectedIndex < articleElements.length) {
-                const articleId = articleElements[selectedIndex].dataset.articleId;
-                const isStarred = articleElements[selectedIndex].dataset.starred === 'true';
-                const starButton = articleElements[selectedIndex].querySelector('.star-btn');
-                await toggleStarred(articleId, !isStarred, starButton, selectedIndex);
-            }
-        }
-        function openSelectedArticle() {
-            if (selectedIndex >= 0 && selectedIndex < currentFeedArticles.length) {
-                window.open(currentFeedArticles[selectedIndex].url, '_blank');
-            }
-        }
-        async function markAsRead(articleId) {
-            try {
-                await fetch('/api/mark_as_read', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ article_id: articleId })
-                });
-            } catch (e) {
-                console.error('既読マークに失敗しました:', e);
-            }
-        }
-        // 次のフィードへ移動（閲覧進捗が増える）
-        async function moveToNextFeed() {
-            if (isLoading) return;
-            isLoading = true;
-            try {
-                // 現在のフィードの未読記事を非同期で既読にする（完了を待たない）
-                const markReadPromises = currentFeedArticles.map(article =>
-                    markAsRead(article.id)
-                );
-                // 非同期処理をバックグラウンドで実行
-                Promise.all(markReadPromises).catch(e => {
-                    console.error('既読マーク処理中にエラーが発生しました:', e);
-                });
-                // allUnreadArticles から現在フィードに属する記事を削除（表示しているフィードを"消化"した扱い）
-                allUnreadArticles = allUnreadArticles.filter(article => article.feed_id !== currentFeedId);
-                // 次のフィードの未読記事を即座に取得・描画
-                if (allUnreadArticles.length > 0) {
-                    currentFeedId = allUnreadArticles[0].feed_id;
-                    currentFeedArticles = allUnreadArticles.filter(article => article.feed_id === currentFeedId);
-                    const nextFeed = feedsData.find(feed => feed.id === currentFeedId);
-                    if (nextFeed) {
-                        currentFeedTitle.textContent = nextFeed.title;
-                    }
-                    renderArticles();
-                    updateFeedProgress();
+                    window.location.reload();
                 } else {
-                    showAllRead();
+                    alert('スター解除に失敗しました。');
                 }
-            } catch (e) {
-                console.error('次のフィードへの移動に失敗しました:', e);
-            } finally {
-                isLoading = false;
-            }
-        }
-        function scrollPage(direction) {
-            window.scrollBy({
-                top: direction === 'up' ? -window.innerHeight + 100 : window.innerHeight - 100,
-                behavior: 'auto'
             });
-        }
-        function showAllRead() {
-            articlesSection.style.display = 'none';
-            allRead.style.display = 'block';
-            rightEdgeArea.style.display = 'none';
-            // 進捗バーは全て完了にする
-            setProgress(100);
-            // 小さめに非表示化して視覚的に邪魔にならないように
-            feedProgressContainer.style.display = 'none';
-        }
-        // 進捗関連
-        function updateFeedProgress() {
-            // 残り未読フィードの数（allUnreadArticles のユニーク feed_id 数）
-            const remainingFeedIds = new Set(allUnreadArticles.map(a => a.feed_id));
-            const remaining = remainingFeedIds.size;
-            // 初回ロード時など totalUnreadFeeds が 0 の場合は remaining を総数にする（安全措置）
-            if (totalUnreadFeeds === 0) {
-                totalUnreadFeeds = remaining;
-            }
-            // 進捗率（閲覧済みフィード数 / 総未読フィード数）
-            const visited = Math.max(0, totalUnreadFeeds - remaining);
-            const percent = totalUnreadFeeds > 0 ? Math.round((visited / totalUnreadFeeds) * 100) : 100;
-            setProgress(percent);
-            // 進捗バーの表示制御
-            if (totalUnreadFeeds === 0) {
-                feedProgressContainer.style.display = 'none';
-            } else {
-                feedProgressContainer.style.display = 'block';
-            }
-        }
-        function setProgress(percent) {
-            const p = Math.max(0, Math.min(100, percent));
-            feedProgressBar.style.width = p + '%';
-            feedProgressBar.setAttribute('aria-valuenow', String(p));
-            feedProgressBar.setAttribute('aria-label', `未読フィード閲覧進捗 ${p}パーセント`);
-        }
-        // 初期ロード
-        // 初期化時にトークンを設定
-        document.addEventListener('DOMContentLoaded', () => {
-            currentToken = getToken();
-            loadAllUnread();
         });
     </script>
 </body>
